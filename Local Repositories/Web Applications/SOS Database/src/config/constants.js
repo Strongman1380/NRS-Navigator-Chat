@@ -21,6 +21,7 @@ export const COLLECTIONS = {
   CLIENTS: "clients",
   ENTRIES: "entries",
   SETTINGS: "settings",
+  AUDITS: "audits",
 };
 
 // ─── Goal Ratings ───────────────────────────────────────────────────────────
@@ -163,4 +164,54 @@ export const EMPTY_SETTINGS = {
   taxonomyCode: "",
   practiceName: "SOS Counseling, LLC",
   practiceAddress: "1811 West Second Street, Suite 450, Grand Island, NE 68801",
+};
+
+// ─── Empty Audit Record ────────────────────────────────────────────────────
+export const EMPTY_AUDIT = {
+  id: "",
+  clientId: "",
+  clientName: "",
+  masterCaseNumber: "",
+  serviceType: "",
+  // Metadata
+  audit_date: "",
+  auditor_name: "",
+  audit_period_start: "",
+  audit_period_end: "",
+  // Universal checklist items (null = not assessed, true = Pass, false = Fail)
+  consents_valid_and_signed: null,
+  advance_directive_documented: null,
+  idi_completed_and_signed: null,
+  functional_impairment_met: null,
+  treatment_plan_active: null,
+  goals_match_interventions: null,
+  exact_timestamps_verified: null,
+  clinical_note_quality: "",
+  supervisory_signoff_present: null,
+  care_coordination_verified: null,
+  referral_loop_closed: null,
+  // Conditional items
+  sud_asam_criteria_met: null,
+  cta_therapist_collaboration: null,
+  // Per-item comments
+  consents_valid_and_signed_comment: "",
+  advance_directive_documented_comment: "",
+  idi_completed_and_signed_comment: "",
+  functional_impairment_met_comment: "",
+  treatment_plan_active_comment: "",
+  goals_match_interventions_comment: "",
+  exact_timestamps_verified_comment: "",
+  clinical_note_quality_comment: "",
+  supervisory_signoff_present_comment: "",
+  care_coordination_verified_comment: "",
+  referral_loop_closed_comment: "",
+  sud_asam_criteria_met_comment: "",
+  cta_therapist_collaboration_comment: "",
+  // Overall result
+  audit_status: "",
+  corrective_action_notes: "",
+  // Metadata
+  isArchived: false,
+  createdAt: "",
+  updatedAt: "",
 };

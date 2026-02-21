@@ -4,6 +4,7 @@ import { Button } from "../../components/Button";
 import { SERVICE_TYPES, SERVICE_BADGE_STYLES } from "../../config/constants";
 import { URGENCY_STYLES } from "../../config/complianceRules";
 import { formatDate } from "../../utils/dateHelpers";
+import { AuditHistory } from "../audits/AuditHistory";
 
 // ─── Helper: avatar initials ────────────────────────────────────────────────
 function getInitials(name) {
@@ -60,6 +61,7 @@ export function ClientDetail({
   client,
   entries,
   alerts,
+  audits,
   onBack,
   onEdit,
   onDischarge,
@@ -67,6 +69,8 @@ export function ClientDetail({
   onDelete,
   onViewEntry,
   onCreateNote,
+  onNewAudit,
+  onViewAudit,
 }) {
   if (!client) return null;
 
@@ -408,6 +412,14 @@ export function ClientDetail({
           </p>
         </Section>
       )}
+
+      {/* ─── QA Audits ───────────────────────────────────────────────────────── */}
+      <AuditHistory
+        audits={audits || []}
+        onViewAudit={onViewAudit}
+        onNewAudit={onNewAudit}
+        isDischarged={client.isDischarged}
+      />
 
       {/* ─── Case Notes List ──────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">

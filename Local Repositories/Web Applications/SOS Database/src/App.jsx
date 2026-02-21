@@ -4,9 +4,10 @@ import { Button } from "./components/Button";
 import { Toast } from "./components/Toast";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { db, auth, firebase } from "./config/firebase";
-import { COLLECTIONS, EMPTY_ENTRY, EMPTY_SETTINGS } from "./config/constants";
+import { COLLECTIONS, EMPTY_ENTRY, EMPTY_AUDIT, EMPTY_SETTINGS } from "./config/constants";
 import { todayStr, formatDate } from "./utils/dateHelpers";
 import { useComplianceAlerts } from "./hooks/useComplianceAlerts";
+import { useAuditAlerts } from "./hooks/useAuditAlerts";
 import { handleExportPDF, handlePrintEntry } from "./utils/pdfExport";
 import { migrateData } from "./utils/migration";
 
@@ -20,6 +21,8 @@ import { DischargeModal } from "./features/clients/DischargeModal";
 import { NoteForm } from "./features/notes/NoteForm";
 import { NoteHistory } from "./features/notes/NoteHistory";
 import { NoteViewModal } from "./features/notes/NoteViewModal";
+import { AuditForm } from "./features/audits/AuditForm";
+import { AuditViewModal } from "./features/audits/AuditViewModal";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MAIN APP COMPONENT
@@ -56,16 +59,27 @@ export default function App() {
   const [editingEntryId, setEditingEntryId] = useState(null);
   const [viewingEntry, setViewingEntry] = useState(null);
 
+  // Audit state
+  const [audits, setAudits] = useState([]);
+  const [showAuditForm, setShowAuditForm] = useState(false);
+  const [editingAudit, setEditingAudit] = useState(null);
+  const [viewingAudit, setViewingAudit] = useState(null);
+
   // Modals
   const [showDischargeModal, setShowDischargeModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
   // ─── Compliance Alerts ─────────────────────────────────────────────────
   const alerts = useComplianceAlerts(clients);
+  const auditAlerts = useAuditAlerts(audits, clients);
+  const allAlerts = useMemo(
+    () => [...alerts, ...auditAlerts],
+    [alerts, auditAlerts]
+  );
 
   const urgentAlertCount = useMemo(
-    () => alerts.filter((a) => a.urgency === "overdue" || a.urgency === "critical").length,
-    [alerts]
+    () => allAlerts.filter((a) => a.urgency === "overdue" || a.urgency === "critical").length,
+    [allAlerts]
   );
 
   // ─── Derived data ─────────────────────────────────────────────────────
@@ -108,6 +122,17 @@ export default function App() {
         (err) => { console.error("Entries listener error:", err); }
       );
 
+    // Load audits
+    const unsubAudits = db.collection(COLLECTIONS.AUDITS)
+      .orderBy("createdAt", "desc")
+      .onSnapshot(
+        (snap) => {
+          const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          setAudits(data);
+        },
+        (err) => { console.error("Audits listener error:", err); }
+      );
+
     // Load provider settings
     const unsubSettings = db.collection(COLLECTIONS.SETTINGS).doc("provider")
       .onSnapshot(
@@ -117,7 +142,7 @@ export default function App() {
         (err) => { console.error("Settings listener error:", err); }
       );
 
-    return () => { unsubClients(); unsubEntries(); unsubSettings(); };
+    return () => { unsubClients(); unsubEntries(); unsubAudits(); unsubSettings(); };
   }, [user]);
 
   // ─── Data migration (run once) ────────────────────────────────────────
@@ -259,8 +284,10 @@ export default function App() {
       onConfirm: async () => {
         try {
           const entrySnap = await db.collection(COLLECTIONS.ENTRIES).where("clientId", "==", selectedClient.id).get();
+          const auditSnap = await db.collection(COLLECTIONS.AUDITS).where("clientId", "==", selectedClient.id).get();
           const batch = db.batch();
           entrySnap.docs.forEach((d) => batch.delete(d.ref));
+          auditSnap.docs.forEach((d) => batch.delete(d.ref));
           batch.delete(db.collection(COLLECTIONS.CLIENTS).doc(selectedClient.id));
           await batch.commit();
           setSelectedClient(null);
@@ -354,6 +381,52 @@ export default function App() {
       console.error("Save settings error:", err);
       showToast("Failed to save settings", "error");
     }
+  };
+
+  // ─── Audit CRUD ───────────────────────────────────────────────────────
+  const handleSaveAudit = async (form) => {
+    if (!form.clientId) { showToast("Client is required", "error"); return; }
+    if (!form.serviceType) { showToast("Service type is required", "error"); return; }
+    if (!form.audit_date) { showToast("Audit date is required", "error"); return; }
+    if (!form.auditor_name?.trim()) { showToast("Auditor name is required", "error"); return; }
+    if (!form.audit_period_start) { showToast("Audit period start is required", "error"); return; }
+    if (!form.audit_period_end) { showToast("Audit period end is required", "error"); return; }
+    try {
+      const now = new Date().toISOString();
+      const { id, ...data } = form;
+      if (editingAudit?.id) {
+        await db.collection(COLLECTIONS.AUDITS).doc(editingAudit.id).update({ ...data, updatedAt: now });
+        showToast("Audit updated");
+      } else {
+        await db.collection(COLLECTIONS.AUDITS).add({ ...data, createdAt: now, updatedAt: now });
+        showToast("Audit saved");
+      }
+      setShowAuditForm(false);
+      setEditingAudit(null);
+    } catch (err) {
+      console.error("Save audit error:", err);
+      showToast("Failed to save audit", "error");
+    }
+  };
+
+  const handleDeleteAudit = (audit) => {
+    setConfirmDialog({
+      title: "Delete Audit",
+      message: `Delete the QA audit from ${formatDate(audit.audit_date)} for "${audit.clientName}"?`,
+      onConfirm: async () => {
+        try {
+          await db.collection(COLLECTIONS.AUDITS).doc(audit.id).delete();
+          setViewingAudit(null);
+          setConfirmDialog(null);
+          showToast("Audit deleted");
+        } catch (err) {
+          console.error("Delete audit error:", err);
+          showToast("Failed to delete audit", "error");
+          setConfirmDialog(null);
+        }
+      },
+      onCancel: () => setConfirmDialog(null),
+    });
   };
 
   // ─── Navigation ────────────────────────────────────────────────────────
@@ -558,7 +631,8 @@ export default function App() {
           <Dashboard
             clients={clients}
             entries={entries}
-            alerts={alerts}
+            alerts={allAlerts}
+            audits={audits}
             onSelectClient={(clientId) => {
               const client = clients.find((c) => c.id === clientId);
               if (client) handleSelectClient(client);
@@ -611,7 +685,8 @@ export default function App() {
           <ClientDetail
             client={clients.find((c) => c.id === selectedClient.id) || selectedClient}
             entries={clientEntries}
-            alerts={alerts}
+            alerts={allAlerts}
+            audits={audits.filter((a) => a.clientId === selectedClient.id)}
             onBack={() => switchTab("clients")}
             onEdit={() => handleEditClient(clients.find((c) => c.id === selectedClient.id) || selectedClient)}
             onDischarge={() => setShowDischargeModal(true)}
@@ -629,6 +704,11 @@ export default function App() {
               setEditingEntryId(null);
               switchTab("form");
             }}
+            onNewAudit={() => {
+              setEditingAudit(null);
+              setShowAuditForm(true);
+            }}
+            onViewAudit={(audit) => setViewingAudit(audit)}
           />
         )}
       </main>
@@ -673,6 +753,30 @@ export default function App() {
           onDelete={() => handleDeleteEntry(viewingEntry)}
           onPrint={() => handlePrintEntry(viewingEntry, showToast)}
           onExportPDF={() => handleExportPDF(viewingEntry, showToast)}
+        />
+      )}
+
+      {/* Audit Form Modal */}
+      {showAuditForm && selectedClient && (
+        <AuditForm
+          client={clients.find((c) => c.id === selectedClient.id) || selectedClient}
+          audit={editingAudit}
+          onSave={handleSaveAudit}
+          onClose={() => { setShowAuditForm(false); setEditingAudit(null); }}
+        />
+      )}
+
+      {/* Audit View Modal */}
+      {viewingAudit && (
+        <AuditViewModal
+          audit={viewingAudit}
+          onClose={() => setViewingAudit(null)}
+          onEdit={() => {
+            setEditingAudit(viewingAudit);
+            setViewingAudit(null);
+            setShowAuditForm(true);
+          }}
+          onDelete={() => handleDeleteAudit(viewingAudit)}
         />
       )}
     </div>

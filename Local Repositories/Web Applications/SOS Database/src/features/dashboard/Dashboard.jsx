@@ -98,6 +98,7 @@ export default function Dashboard({
   clients,
   entries,
   alerts,
+  audits,
   onSelectClient,
   onSwitchTab,
 }) {
@@ -129,8 +130,30 @@ export default function Dashboard({
       (a) => a.urgency === "overdue" || a.urgency === "critical"
     );
 
-    return { activeClients: activeClients.length, activeServices, notesThisMonth, alertCount, hasUrgent };
-  }, [clients, entries, alerts]);
+    // Audit stats
+    const auditsThisMonth = (audits || []).filter((a) => {
+      if (!a.audit_date) return false;
+      const [y, m] = a.audit_date.split("-").map(Number);
+      return y === currentYear && m - 1 === currentMonth;
+    }).length;
+    const correctionsPending = (audits || []).filter(
+      (a) => a.audit_status === "Needs Correction"
+    ).length;
+    const failedAudits = (audits || []).filter(
+      (a) => a.audit_status === "Failed - Do Not Bill"
+    ).length;
+
+    return {
+      activeClients: activeClients.length,
+      activeServices,
+      notesThisMonth,
+      alertCount,
+      hasUrgent,
+      auditsThisMonth,
+      correctionsPending,
+      failedAudits,
+    };
+  }, [clients, entries, alerts, audits]);
 
   // ─── Sorted & grouped alerts ─────────────────────────────────────────────────
   const sortedAlerts = useMemo(() => {
@@ -190,6 +213,29 @@ export default function Dashboard({
           accent={stats.hasUrgent}
         />
       </div>
+
+      {/* Audit Stats Row */}
+      {(stats.auditsThisMonth > 0 || stats.correctionsPending > 0 || stats.failedAudits > 0) && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <StatCard
+            icon="ClipboardCheck"
+            label="Audits This Month"
+            value={stats.auditsThisMonth}
+          />
+          <StatCard
+            icon="AlertOctagon"
+            label="Corrections Pending"
+            value={stats.correctionsPending}
+            accent={stats.correctionsPending > 0}
+          />
+          <StatCard
+            icon="Ban"
+            label="Failed Audits"
+            value={stats.failedAudits}
+            accent={stats.failedAudits > 0}
+          />
+        </div>
+      )}
 
       {/* Compliance Alerts Panel */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
