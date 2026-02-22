@@ -1,0 +1,189 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedEmail() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function hasSosAccess() {
+      return isVerifiedEmail() && request.auth.token.sosAccess == true;
+    }
+
+    function isAdmin() {
+      return hasSosAccess() && request.auth.token.admin == true;
+    }
+
+    function clientFieldsValid() {
+      return request.resource.data.keys().hasOnly([
+        'clientName',
+        'masterCaseNumber',
+        'caseOpenedDate',
+        'dateOfBirth',
+        'medicaidMemberId',
+        'primaryLanguage',
+        'legalGuardianStatus',
+        'consentOnFile',
+        'consentSignedDate',
+        'advanceDirectiveOnFile',
+        'services',
+        'treatmentGoals',
+        'notes',
+        'medicationLog',
+        'medicalStudiesResults',
+        'epsdtScreenings',
+        'epsdtEducation',
+        'familyMembers',
+        'referralAgency',
+        'referralOutcome',
+        'familyInvolvementLog',
+        'careCoordinationLog',
+        'emergencyEncounter',
+        'isArchived',
+        'isDischarged',
+        'dischargeDate',
+        'dischargeReason',
+        'dischargeSummary',
+        'createdAt',
+        'updatedAt',
+        '_schemaVersion'
+      ]);
+    }
+
+    function entryFieldsValid() {
+      return request.resource.data.keys().hasOnly([
+        'clientId',
+        'clientName',
+        'masterCaseNumber',
+        'serviceType',
+        'date',
+        'timeStart',
+        'timeEnd',
+        'serviceLocation',
+        'telehealthDetails',
+        'participants',
+        'selectedParticipants',
+        'lengthOfService',
+        'treatmentPlanGoals',
+        'selectedGoals',
+        'goalRatings',
+        'interventionOutcomes',
+        'progressMade',
+        'planForNextSession',
+        'providerSignature',
+        'signatureDate',
+        'caseOpened',
+        'goalsForCTAProvider',
+        'goalWorkedOn',
+        'currentRatingOfGoal',
+        'changesToADL',
+        'additionalServicesNeeded',
+        'additionalServicesDescription',
+        'therapyModality',
+        'clinicalFindings',
+        'mentalStatusExam',
+        'diagnosticImpression',
+        'substanceUseStatus',
+        'supervisionNotes',
+        'referralAgency',
+        'referralOutcome',
+        'familyInvolvementNote',
+        'careCoordinationNote',
+        'isArchived',
+        'createdAt',
+        'updatedAt',
+        '_schemaVersion'
+      ]);
+    }
+
+    function auditFieldsValid() {
+      return request.resource.data.keys().hasOnly([
+        'clientId',
+        'clientName',
+        'masterCaseNumber',
+        'serviceType',
+        'audit_date',
+        'auditor_name',
+        'audit_period_start',
+        'audit_period_end',
+        'consents_valid_and_signed',
+        'advance_directive_documented',
+        'idi_completed_and_signed',
+        'functional_impairment_met',
+        'treatment_plan_active',
+        'goals_match_interventions',
+        'exact_timestamps_verified',
+        'clinical_note_quality',
+        'supervisory_signoff_present',
+        'care_coordination_verified',
+        'referral_loop_closed',
+        'sud_asam_criteria_met',
+        'cta_therapist_collaboration',
+        'consents_valid_and_signed_comment',
+        'advance_directive_documented_comment',
+        'idi_completed_and_signed_comment',
+        'functional_impairment_met_comment',
+        'treatment_plan_active_comment',
+        'goals_match_interventions_comment',
+        'exact_timestamps_verified_comment',
+        'clinical_note_quality_comment',
+        'supervisory_signoff_present_comment',
+        'care_coordination_verified_comment',
+        'referral_loop_closed_comment',
+        'sud_asam_criteria_met_comment',
+        'cta_therapist_collaboration_comment',
+        'audit_status',
+        'corrective_action_notes',
+        'isArchived',
+        'createdAt',
+        'updatedAt'
+      ]);
+    }
+
+    match /clients/{clientId} {
+      allow read: if hasSosAccess();
+      allow create: if hasSosAccess() && clientFieldsValid();
+      allow update: if hasSosAccess() && clientFieldsValid() && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isAdmin();
+    }
+
+    match /entries/{entryId} {
+      allow read: if hasSosAccess();
+      allow create: if hasSosAccess() && entryFieldsValid();
+      allow update: if hasSosAccess() && entryFieldsValid() && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if hasSosAccess();
+    }
+
+    match /audits/{auditId} {
+      allow read: if hasSosAccess();
+      allow create: if hasSosAccess() && auditFieldsValid();
+      allow update: if hasSosAccess() && auditFieldsValid() && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if hasSosAccess();
+    }
+
+    match /settings/provider {
+      allow read: if hasSosAccess();
+      allow create, update: if isAdmin() && request.resource.data.keys().hasOnly([
+        'billingFacilityNpi',
+        'renderingProviderNpi',
+        'taxonomyCode',
+        'practiceName',
+        'practiceAddress',
+        'updatedAt'
+      ]);
+      allow delete: if false;
+    }
+
+    match /security_audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
