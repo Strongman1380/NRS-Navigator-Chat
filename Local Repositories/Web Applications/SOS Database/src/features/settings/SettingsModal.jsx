@@ -4,11 +4,13 @@ import { Button } from "../../components/Button";
 import { InputField } from "../../components/InputField";
 import { EMPTY_SETTINGS } from "../../config/constants";
 
-export function SettingsModal({ settings, onSave, onClose }) {
+export function SettingsModal({ settings, onSave, onClose, onSeedDemo }) {
   const [form, setForm] = useState(() => ({
     ...EMPTY_SETTINGS,
     ...settings,
   }));
+  const [seeding, setSeeding] = useState(false);
+  const [seedResult, setSeedResult] = useState(null);
 
   const update = (field) => (value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -77,6 +79,39 @@ export function SettingsModal({ settings, onSave, onClose }) {
             placeholder="Street, City, State ZIP"
           />
         </div>
+
+        {typeof onSeedDemo === "function" && (
+          <div className="px-6 py-4 border-t border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Demo Data</h3>
+            <p className="text-xs text-gray-500 mb-3">Load sample clients, case notes, and audits for demonstration purposes.</p>
+            {seedResult && (
+              <div className="mb-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-sm text-green-700">{seedResult}</p>
+              </div>
+            )}
+            <Button
+              variant="secondary"
+              iconName="DatabaseZap"
+              onClick={async () => {
+                setSeeding(true);
+                setSeedResult(null);
+                try {
+                  const result = await onSeedDemo();
+                  setSeedResult(`Loaded ${result.clients} clients, ${result.entries} case notes, and ${result.audits} audits.`);
+                } catch (err) {
+                  console.error("Seed error:", err);
+                  setSeedResult("Failed to load demo data: " + err.message);
+                } finally {
+                  setSeeding(false);
+                }
+              }}
+              disabled={seeding}
+              className="text-sm"
+            >
+              {seeding ? "Loading..." : "Load Demo Data"}
+            </Button>
+          </div>
+        )}
 
         {/* Footer Buttons */}
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 flex-shrink-0">

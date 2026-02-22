@@ -6,5 +6,14 @@ export default defineConfig({
   base: './',
   build: {
     sourcemap: false,
+  },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://sos-database.vercel.app',
+        changeOrigin: true,
+        rewrite: (path) => path
+      }
+    }
   }
 })

@@ -1,5 +1,6 @@
 import firebase from "firebase/compat/app";
 import "firebase/compat/auth";
+import "firebase/compat/app-check";
 import "firebase/compat/firestore";
 
 const firebaseConfig = {
@@ -26,6 +27,7 @@ const isFirebaseConfigured = (cfg) => {
 
 let _app = null;
 let _auth = null;
+let _appCheck = null;
 let _db = null;
 let _initError = null;
 
@@ -34,6 +36,12 @@ try {
     _app = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
     _auth = firebase.auth();
     _db = firebase.firestore();
+
+    const appCheckSiteKey = import.meta.env.VITE_APP_CHECK_SITE_KEY || "";
+    if (appCheckSiteKey) {
+      _appCheck = firebase.appCheck();
+      _appCheck.activate(appCheckSiteKey, true);
+    }
   } else {
     _initError = "Firebase configuration is invalid";
     console.error(_initError);
@@ -53,13 +61,19 @@ const getAuth = () => {
   return _auth;
 };
 
-const getDb = () => {
-  if (!_db) throw new Error(_initError || "Firebase not configured.");
-  return _db;
+const getAppCheckToken = async () => {
+  if (!_appCheck) return "";
+  try {
+    const tokenResult = await _appCheck.getToken(false);
+    return tokenResult?.token || "";
+  } catch (error) {
+    console.error("App Check token error:", error);
+    return "";
+  }
 };
 
 const app = _app;
 const auth = _auth;
 const db = _db;
 
-export { firebase, firebaseConfig, isFirebaseConfigured, app, auth, db, getApp, getAuth, getDb };
+export { firebase, firebaseConfig, isFirebaseConfigured, app, auth, db, getApp, getAuth, getAppCheckToken };

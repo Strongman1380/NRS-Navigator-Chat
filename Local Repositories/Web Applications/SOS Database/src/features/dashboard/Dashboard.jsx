@@ -99,6 +99,7 @@ export default function Dashboard({
   entries,
   alerts,
   audits,
+  securityMetrics,
   onSelectClient,
   onSwitchTab,
 }) {
@@ -234,6 +235,47 @@ export default function Dashboard({
             value={stats.failedAudits}
             accent={stats.failedAudits > 0}
           />
+        </div>
+      )}
+
+      {securityMetrics && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <div className="flex items-center gap-3">
+              <LucideIcon name="ShieldCheck" className="w-5 h-5 text-gray-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Security Monitoring</h2>
+            </div>
+            <span className="text-xs text-gray-500">Last {securityMetrics.windowHours || 24} hours</span>
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard icon="Activity" label="Security Events" value={securityMetrics.totalEvents || 0} />
+              <StatCard icon="ShieldAlert" label="Denied Requests" value={securityMetrics.deniedEvents || 0} accent={(securityMetrics.deniedEvents || 0) > 0} />
+              <StatCard icon="FileOutput" label="Print/PDF Exports" value={securityMetrics.exportEvents || 0} />
+              <StatCard icon="KeyRound" label="Session Revocations" value={securityMetrics.revokeEvents || 0} accent={(securityMetrics.revokeEvents || 0) > 0} />
+            </div>
+
+            {Array.isArray(securityMetrics.alerts) && securityMetrics.alerts.length > 0 ? (
+              <div className="space-y-2">
+                {securityMetrics.alerts.map((alert) => (
+                  <div
+                    key={alert.id}
+                    className={`rounded-lg border px-4 py-3 text-sm ${
+                      alert.severity === "high"
+                        ? "bg-red-50 border-red-200 text-red-700"
+                        : "bg-amber-50 border-amber-200 text-amber-700"
+                    }`}
+                  >
+                    {alert.label}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                No security anomalies detected in the current monitoring window.
+              </div>
+            )}
+          </div>
         </div>
       )}
 

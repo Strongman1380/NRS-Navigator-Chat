@@ -93,6 +93,11 @@ export const EMPTY_CLIENT = {
   medicalStudiesResults: "",
   epsdtScreenings: "",
   epsdtEducation: "",
+  // Family members
+  familyMembers: [],
+  // Referral
+  referralAgency: "",
+  referralOutcome: "",
   // Community tracking
   familyInvolvementLog: "",
   careCoordinationLog: "",
@@ -121,9 +126,11 @@ export const EMPTY_ENTRY = {
   serviceLocation: "",
   telehealthDetails: "",
   participants: "",
+  selectedParticipants: [],
   lengthOfService: "",
   treatmentPlanGoals: "",
   selectedGoals: [],
+  goalRatings: {},
   interventionOutcomes: "",
   progressMade: "",
   planForNextSession: "",

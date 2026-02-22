@@ -73,6 +73,19 @@ export function ClientForm({ client, editingId, onSave, onClose }) {
     update("treatmentGoals", goals);
   };
 
+  // Family members
+  const addFamilyMember = () => update("familyMembers", [...(form.familyMembers || []), ""]);
+  const removeFamilyMember = (idx) =>
+    update(
+      "familyMembers",
+      (form.familyMembers || []).filter((_, i) => i !== idx)
+    );
+  const updateFamilyMember = (idx, value) => {
+    const members = [...(form.familyMembers || [])];
+    members[idx] = value;
+    update("familyMembers", members);
+  };
+
   const handleSave = () => {
     if (!form.clientName.trim()) return;
     onSave(form);
@@ -349,7 +362,7 @@ export function ClientForm({ client, editingId, onSave, onClose }) {
                   </span>
                   <input
                     type="text"
-                    value={goal}
+                    value={typeof goal === "string" ? goal : goal?.text || ""}
                     onChange={(e) => updateGoal(idx, e.target.value)}
                     placeholder={`Goal ${idx + 1}`}
                     className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
@@ -375,7 +388,46 @@ export function ClientForm({ client, editingId, onSave, onClose }) {
             </button>
           </section>
 
-          {/* ─── E. Medical & EPSDT ────────────────────────────────────── */}
+          {/* ─── E. Family Members ─────────────────────────────────────── */}
+          <section>
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Family Members
+            </h3>
+            <div className="space-y-2">
+              {(form.familyMembers || []).map((member, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-400 min-w-[24px]">
+                    {idx + 1}.
+                  </span>
+                  <input
+                    type="text"
+                    value={member}
+                    onChange={(e) => updateFamilyMember(idx, e.target.value)}
+                    placeholder={`e.g. Mother, Father, Guardian`}
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeFamilyMember(idx)}
+                    className="text-red-400 hover:text-red-600 transition-colors"
+                    title="Remove"
+                  >
+                    <LucideIcon name="Trash2" className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={addFamilyMember}
+              className="mt-3 flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
+            >
+              <LucideIcon name="Plus" className="w-4 h-4" />
+              Add Family Member
+            </button>
+          </section>
+
+          {/* ─── F. Medical & EPSDT ────────────────────────────────────── */}
           <section>
             <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
               Medical{under21 ? " & EPSDT" : ""}
@@ -422,6 +474,20 @@ export function ClientForm({ client, editingId, onSave, onClose }) {
               Community Tracking
             </h3>
             <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <InputField
+                  label="Referral Agency"
+                  value={form.referralAgency}
+                  onChange={(v) => update("referralAgency", v)}
+                  placeholder="e.g. DHHS, Community Action"
+                />
+                <InputField
+                  label="Referral Outcome"
+                  value={form.referralOutcome}
+                  onChange={(v) => update("referralOutcome", v)}
+                  placeholder="e.g. Enrolled, Pending, Declined"
+                />
+              </div>
               <InputField
                 label="Family Involvement Log"
                 type="textarea"

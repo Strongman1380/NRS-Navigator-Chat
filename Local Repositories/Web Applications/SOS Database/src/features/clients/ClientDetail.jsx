@@ -353,7 +353,7 @@ export function ClientDetail({
           <ol className="list-decimal list-inside space-y-2">
             {client.treatmentGoals.map((goal, idx) => (
               <li key={idx} className="text-sm text-gray-800">
-                {goal}
+                {typeof goal === "string" ? goal : goal?.text || ""}
               </li>
             ))}
           </ol>

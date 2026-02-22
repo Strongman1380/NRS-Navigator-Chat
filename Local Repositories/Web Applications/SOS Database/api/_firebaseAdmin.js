@@ -1,21 +1,24 @@
 import admin from "firebase-admin";
 
 if (!admin.apps.length) {
-  try {
-    const serviceAccountJSON = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-    if (serviceAccountJSON) {
+  const projectId = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON ? "sos-data-log-73af3" : (process.env.FIREBASE_PROJECT_ID || "sos-data-log-73af3")).trim();
+  let initialized = false;
+  const serviceAccountJSON = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || "").trim();
+  if (serviceAccountJSON) {
+    try {
       const serviceAccount = JSON.parse(serviceAccountJSON);
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        projectId: process.env.FIREBASE_PROJECT_ID || "sos-data-log-73af3",
-      });
-    } else {
-      admin.initializeApp({
-        projectId: process.env.FIREBASE_PROJECT_ID || "sos-data-log-73af3",
-      });
+      admin.initializeApp({ credential: admin.credential.cert(serviceAccount), projectId });
+      initialized = true;
+    } catch (error) {
+      console.error("Firebase Admin: service account JSON is invalid, falling back to no-credential init:", error.message);
     }
-  } catch (error) {
-    console.error("Firebase Admin init error:", error);
+  }
+  if (!initialized) {
+    try {
+      admin.initializeApp({ projectId });
+    } catch (error) {
+      console.error("Firebase Admin init error:", error);
+    }
   }
 }
 

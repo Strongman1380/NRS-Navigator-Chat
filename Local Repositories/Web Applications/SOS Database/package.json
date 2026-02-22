@@ -6,12 +6,17 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "security:set-claims": "node scripts/setSosAccessClaims.mjs",
+    "security:backup-drill": "node scripts/securityBackupDrill.mjs",
+    "security:revoke-user": "node scripts/revokeUserSessions.mjs",
+    "security:rotate-encryption": "node scripts/rotateEncryption.mjs"
   },
   "dependencies": {
     "dompurify": "^3.0.11",
     "file-saver": "^2.0.5",
-    "firebase": "^10.12.5",
+    "firebase": "^12.9.0",
+    "firebase-admin": "^13.6.1",
     "html2pdf.js": "^0.14.0",
     "lucide-react": "^0.451.0",
     "prop-types": "^15.8.1",

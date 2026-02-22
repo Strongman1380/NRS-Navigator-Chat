@@ -152,8 +152,13 @@ export function NoteForm({
       clientName: client.clientName,
       masterCaseNumber: client.masterCaseNumber || "",
       selectedGoals: [],
+      goalRatings: {},
       treatmentPlanGoals: "",
       serviceType: autoServiceType,
+      referralAgency: client.referralAgency || "",
+      referralOutcome: client.referralOutcome || "",
+      selectedParticipants: ["Client"],
+      participants: "Client",
     };
 
     // For CTA, pre-fill caseOpened from client
@@ -174,6 +179,12 @@ export function NoteForm({
       updated.caseOpened = selectedClient.caseOpenedDate;
     }
 
+    // For CS, pre-fill referral fields from client profile if currently blank
+    if (type === "CS" && selectedClient) {
+      if (!updated.referralAgency) updated.referralAgency = selectedClient.referralAgency || "";
+      if (!updated.referralOutcome) updated.referralOutcome = selectedClient.referralOutcome || "";
+    }
+
     setEntryForm(updated);
   };
 
@@ -181,15 +192,42 @@ export function NoteForm({
   const handleGoalToggle = (goalText) => {
     const current = entryForm.selectedGoals || [];
     let next;
+    const newRatings = { ...(entryForm.goalRatings || {}) };
     if (current.includes(goalText)) {
       next = current.filter((g) => g !== goalText);
+      delete newRatings[goalText];
     } else {
       next = [...current, goalText];
     }
     setEntryForm({
       ...entryForm,
       selectedGoals: next,
+      goalRatings: newRatings,
       treatmentPlanGoals: next.join("; "),
+    });
+  };
+
+  // ─── Goal rating handler ────────────────────────────────────────────────────
+  const handleGoalRating = (goalText, rating) => {
+    setEntryForm({
+      ...entryForm,
+      goalRatings: { ...(entryForm.goalRatings || {}), [goalText]: rating },
+    });
+  };
+
+  // ─── Participant toggle handler ─────────────────────────────────────────────
+  const handleParticipantToggle = (name) => {
+    const current = entryForm.selectedParticipants || [];
+    let next;
+    if (current.includes(name)) {
+      next = current.filter((p) => p !== name);
+    } else {
+      next = [...current, name];
+    }
+    setEntryForm({
+      ...entryForm,
+      selectedParticipants: next,
+      participants: next.join(", "),
     });
   };
 
@@ -317,20 +355,52 @@ export function NoteForm({
                   </p>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <InputField
-                    label="Service Location"
-                    type="select"
-                    value={entryForm.serviceLocation}
-                    onChange={(v) => updateField("serviceLocation", v)}
-                    options={SERVICE_LOCATIONS}
-                  />
-                  <InputField
-                    label="Participants"
-                    value={entryForm.participants}
-                    onChange={(v) => updateField("participants", v)}
-                    placeholder="e.g. Client, Mother, CTA"
-                  />
+                <InputField
+                  label="Service Location"
+                  type="select"
+                  value={entryForm.serviceLocation}
+                  onChange={(v) => updateField("serviceLocation", v)}
+                  options={SERVICE_LOCATIONS}
+                />
+
+                {/* ─── Participants ────────────────────────────────────────── */}
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">Participants</p>
+                  {selectedClient ? (
+                    <div className="flex flex-wrap gap-2">
+                      {["Client", ...(selectedClient.familyMembers || []).filter(Boolean)].map((name) => {
+                        const checked = (entryForm.selectedParticipants || []).includes(name);
+                        return (
+                          <label
+                            key={name}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm cursor-pointer transition-colors ${
+                              checked
+                                ? "bg-red-50 border-red-300 text-red-700"
+                                : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => handleParticipantToggle(name)}
+                              className="sr-only"
+                            />
+                            <LucideIcon name={checked ? "CheckCircle" : "Circle"} className="w-3.5 h-3.5" />
+                            {name}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <InputField
+                      value={entryForm.participants}
+                      onChange={(v) => updateField("participants", v)}
+                      placeholder="e.g. Client, Mother, CTA"
+                    />
+                  )}
+                  {selectedClient && entryForm.participants && (
+                    <p className="text-xs text-gray-400 mt-1">Present: {entryForm.participants}</p>
+                  )}
                 </div>
 
                 {entryForm.serviceLocation === "Telehealth" && (
@@ -350,20 +420,65 @@ export function NoteForm({
                 {selectedClient?.treatmentGoals?.length > 0 ? (
                   <div className="space-y-2">
                     {selectedClient.treatmentGoals.map((goal, idx) => {
-                      const isChecked = (entryForm.selectedGoals || []).includes(goal);
+                      const goalText = typeof goal === "string" ? goal : goal?.text || "";
+                      const isChecked = (entryForm.selectedGoals || []).includes(goalText);
+                      const showRating = isChecked && (svcType === "CTA" || svcType === "CS");
+                      const currentRating = (entryForm.goalRatings || {})[goalText] || "";
                       return (
-                        <label
-                          key={idx}
-                          className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => handleGoalToggle(goal)}
-                            className="mt-0.5 rounded border-gray-300 text-[var(--brand-red)] focus:ring-[var(--brand-red)]"
-                          />
-                          <span className="text-sm text-gray-700">{goal}</span>
-                        </label>
+                        <div key={idx} className="rounded-lg border border-gray-200 overflow-hidden">
+                          <label className="flex items-start gap-3 p-3 hover:bg-gray-50 cursor-pointer transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => handleGoalToggle(goalText)}
+                              className="mt-0.5 rounded border-gray-300 text-[var(--brand-red)] focus:ring-[var(--brand-red)]"
+                            />
+                            <span className="text-sm text-gray-700">{goalText}</span>
+                          </label>
+                          {showRating && (
+                            <div className="px-3 pb-3 bg-gray-50 border-t border-gray-100">
+                              <p className="text-xs font-medium text-gray-500 mb-2 mt-2">
+                                Progress Rating
+                                <span className="font-normal text-gray-400 ml-1">
+                                  (1 = significant regression · 5 = stable · 10 = significant progress)
+                                </span>
+                              </p>
+                              <div className="flex gap-1 flex-wrap">
+                                {GOAL_RATINGS.map((r) => {
+                                  const n = parseInt(r);
+                                  const isSelected = currentRating === r;
+                                  const colorClass =
+                                    n <= 3
+                                      ? isSelected
+                                        ? "bg-red-500 text-white border-red-500"
+                                        : "border-red-200 text-red-600 hover:bg-red-50"
+                                      : n <= 6
+                                      ? isSelected
+                                        ? "bg-yellow-500 text-white border-yellow-500"
+                                        : "border-yellow-200 text-yellow-700 hover:bg-yellow-50"
+                                      : isSelected
+                                      ? "bg-green-500 text-white border-green-500"
+                                      : "border-green-200 text-green-700 hover:bg-green-50";
+                                  return (
+                                    <button
+                                      key={r}
+                                      type="button"
+                                      onClick={() => handleGoalRating(goalText, r)}
+                                      className={`w-8 h-8 rounded-full border text-xs font-semibold transition-colors ${colorClass}`}
+                                    >
+                                      {r}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              {currentRating && (
+                                <p className="text-xs mt-1.5 text-gray-500">
+                                  Selected: <span className="font-semibold">{currentRating}/10</span>
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
                   </div>

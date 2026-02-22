@@ -47,10 +47,22 @@ try {
   );
 } catch (error) {
   console.error('Render error:', error);
-  document.getElementById('root').innerHTML = `
-    <div style="padding: 20px; font-family: Inter, sans-serif;">
-      <h1 style="color: #8B1A1A;">Application Failed to Load</h1>
-      <p style="color: #666;">Error: ${error?.message || 'Unknown error'}</p>
-    </div>
-  `;
+  const root = document.getElementById('root');
+  if (root) {
+    const wrapper = document.createElement('div');
+    wrapper.style.padding = '20px';
+    wrapper.style.fontFamily = 'Inter, sans-serif';
+
+    const title = document.createElement('h1');
+    title.style.color = '#8B1A1A';
+    title.textContent = 'Application Failed to Load';
+
+    const body = document.createElement('p');
+    body.style.color = '#666';
+    body.textContent = `Error: ${error?.message || 'Unknown error'}`;
+
+    wrapper.appendChild(title);
+    wrapper.appendChild(body);
+    root.replaceChildren(wrapper);
+  }
 }
