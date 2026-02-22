@@ -10,6 +10,7 @@ import { useComplianceAlerts } from "./hooks/useComplianceAlerts";
 import { useAuditAlerts } from "./hooks/useAuditAlerts";
 import { handleExportPDF, handlePrintEntry } from "./utils/pdfExport";
 import { migrateData } from "./utils/migration";
+import { seedDemoData } from "./utils/seedDemoData";
 
 // Feature components
 import Dashboard from "./features/dashboard/Dashboard";
@@ -199,6 +200,24 @@ export default function App() {
 
   const handleSignOut = async () => {
     try { await auth.signOut(); } catch (err) { console.error("Sign out error:", err); }
+  };
+
+  // ─── Demo data seeder (admin only) ─────────────────────────────────────
+  const [seedLoading, setSeedLoading] = useState(false);
+  const isAdmin = user?.email === ADMIN_EMAIL;
+
+  const handleSeedData = async () => {
+    if (!isAdmin || !db) return;
+    setSeedLoading(true);
+    try {
+      const result = await seedDemoData(db);
+      showToast(`Loaded ${result.clients} clients, ${result.entries} notes, ${result.audits} audits`);
+    } catch (err) {
+      console.error("Seed error:", err);
+      showToast("Failed to load demo data", "error");
+    } finally {
+      setSeedLoading(false);
+    }
   };
 
   // ─── Toast helper ──────────────────────────────────────────────────────
@@ -597,6 +616,17 @@ export default function App() {
 
             {/* Right: Settings + User */}
             <div className="flex items-center gap-2">
+              {isAdmin && (
+                <button
+                  onClick={handleSeedData}
+                  disabled={seedLoading}
+                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 border border-dashed border-gray-300 transition-colors disabled:opacity-50"
+                  title="Load demo clients and case notes (admin only)"
+                >
+                  <LucideIcon name="DatabaseZap" className="w-3.5 h-3.5" />
+                  {seedLoading ? "Loading…" : "Load Demo Data"}
+                </button>
+              )}
               <button
                 onClick={() => setShowSettings(true)}
                 className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
