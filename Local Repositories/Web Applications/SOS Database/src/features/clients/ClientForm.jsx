@@ -11,6 +11,7 @@ import {
   GOAL_RATINGS,
   GUARDIAN_STATUSES,
   LANGUAGES,
+  STAFF_FOR_SERVICE,
 } from "../../config/constants";
 import { isUnder21 } from "../../utils/dateHelpers";
 
@@ -260,6 +261,24 @@ export function ClientForm({ client, editingId, onSave, onClose }) {
 
                   {isExpanded && (
                     <div className="px-4 py-4 space-y-4 bg-white">
+                      {/* Assigned Staff */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Assigned Staff
+                        </label>
+                        <select
+                          value={data.assignedStaff || ""}
+                          onChange={(e) => updateService(code, "assignedStaff", e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400"
+                        >
+                          <option value="">— Unassigned —</option>
+                          {STAFF_FOR_SERVICE(code).map((s) => (
+                            <option key={s.name} value={s.name}>
+                              {s.name} — {s.title}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <InputField
                           label="Service Start Date"

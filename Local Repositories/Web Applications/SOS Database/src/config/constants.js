@@ -8,6 +8,19 @@ export const SERVICE_TYPES = {
 
 export const SERVICE_CODES = Object.keys(SERVICE_TYPES);
 
+// ─── Staff Directory ─────────────────────────────────────────────────────────
+export const STAFF_LIST = [
+  { name: "Cindy Kissack",    title: "MS, LIMHP",          services: ["MH", "SA"] },
+  { name: "Jenna Davis",      title: "MS, LIMHP",          services: ["MH", "SA"] },
+  { name: "Trey Kissack",     title: "PLMHP",              services: ["MH", "SA"] },
+  { name: "Alisha Thompson",  title: "PLMHP, PCMSW",       services: ["MH", "SA"] },
+  { name: "Shayla Punchocar", title: "Community Treatment Aide", services: ["CTA", "CS"] },
+  { name: "Brandon Hinrichs", title: "Community Treatment Aide", services: ["CTA", "CS"] },
+];
+
+export const STAFF_FOR_SERVICE = (serviceCode) =>
+  STAFF_LIST.filter((s) => s.services.includes(serviceCode));
+
 // ─── Service Color Maps ─────────────────────────────────────────────────────
 export const SERVICE_BADGE_STYLES = {
   MH:  { bg: "bg-blue-100",   text: "text-blue-700",   border: "border-blue-200" },
@@ -53,6 +66,7 @@ export const SERVICE_LOCATIONS = ["Office", "Home", "Community", "School", "Tele
 // ─── Empty Service Config ───────────────────────────────────────────────────
 export const EMPTY_SERVICE = {
   active: true,
+  assignedStaff: "",
   serviceStartDate: "",
   serviceEndDate: "",
   authStartDate: "",
