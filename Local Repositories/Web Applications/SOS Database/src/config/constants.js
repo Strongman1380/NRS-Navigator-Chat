@@ -8,6 +8,21 @@ export const SERVICE_TYPES = {
 
 export const SERVICE_CODES = Object.keys(SERVICE_TYPES);
 
+// ─── Admin & Staff Email Map ─────────────────────────────────────────────────
+// Set ADMIN_EMAIL to the address that should always see all clients.
+// Fill in each staff member's login email below when ready to activate filtering.
+export const ADMIN_EMAIL = "bhinrichs1380@gmail.com";
+
+export const STAFF_EMAIL_MAP = {
+  // "staff.email@example.com": "Staff Name (must match STAFF_LIST exactly)",
+  "cindy.email@placeholder.com":   "Cindy Kissack",
+  "jenna.email@placeholder.com":   "Jenna Davis",
+  "trey.email@placeholder.com":    "Trey Kissack",
+  "alisha.email@placeholder.com":  "Alisha Thompson",
+  "shayla.email@placeholder.com":  "Shayla Punchocar",
+  "bhinrichs1380@gmail.com":       "Brandon Hinrichs",
+};
+
 // ─── Staff Directory ─────────────────────────────────────────────────────────
 export const STAFF_LIST = [
   { name: "Cindy Kissack",    title: "MS, LIMHP",          services: ["MH", "SA"] },

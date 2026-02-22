@@ -4,7 +4,7 @@ import { Button } from "./components/Button";
 import { Toast } from "./components/Toast";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { db, auth, firebase } from "./config/firebase";
-import { COLLECTIONS, EMPTY_ENTRY, EMPTY_AUDIT, EMPTY_SETTINGS } from "./config/constants";
+import { COLLECTIONS, EMPTY_ENTRY, EMPTY_AUDIT, EMPTY_SETTINGS, ADMIN_EMAIL, STAFF_EMAIL_MAP } from "./config/constants";
 import { todayStr, formatDate } from "./utils/dateHelpers";
 import { useComplianceAlerts } from "./hooks/useComplianceAlerts";
 import { useAuditAlerts } from "./hooks/useAuditAlerts";
@@ -84,6 +84,24 @@ export default function App() {
 
   // ─── Derived data ─────────────────────────────────────────────────────
   const activeClients = useMemo(() => clients.filter((c) => !c.isArchived && !c.isDischarged), [clients]);
+
+  // ─── Staff-scoped client visibility ───────────────────────────────────
+  // Admins see all clients. Staff see only clients where their name appears
+  // as assignedStaff in at least one service.
+  const visibleClients = useMemo(() => {
+    if (!user) return [];
+    if (user.email === ADMIN_EMAIL) return clients;
+    const staffName = STAFF_EMAIL_MAP[user.email];
+    if (!staffName) return clients; // unknown email — show all (safe fallback until emails are filled in)
+    return clients.filter((c) =>
+      Object.values(c.services || {}).some((svc) => svc.assignedStaff === staffName)
+    );
+  }, [clients, user]);
+
+  const visibleActiveClients = useMemo(
+    () => visibleClients.filter((c) => !c.isArchived && !c.isDischarged),
+    [visibleClients]
+  );
 
   // ─── Auth listener ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -524,6 +542,11 @@ export default function App() {
     ? entries.filter((e) => e.clientId === selectedClient.id)
     : [];
 
+  // Resolve selected client from visible list (keeps detail in sync with filtering)
+  const resolvedSelectedClient = selectedClient
+    ? (visibleClients.find((c) => c.id === selectedClient.id) || selectedClient)
+    : null;
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* ─── Toast & Dialogs ──────────────────────────────────────────────── */}
@@ -629,12 +652,12 @@ export default function App() {
         {/* Dashboard */}
         {activeTab === "dashboard" && (
           <Dashboard
-            clients={clients}
+            clients={visibleClients}
             entries={entries}
             alerts={allAlerts}
             audits={audits}
             onSelectClient={(clientId) => {
-              const client = clients.find((c) => c.id === clientId);
+              const client = visibleClients.find((c) => c.id === clientId);
               if (client) handleSelectClient(client);
             }}
             onSwitchTab={switchTab}
@@ -644,7 +667,7 @@ export default function App() {
         {/* New Note / Edit Note */}
         {activeTab === "form" && (
           <NoteForm
-            clients={clients}
+            clients={visibleClients}
             entryForm={entryForm}
             setEntryForm={setEntryForm}
             editingEntryId={editingEntryId}
@@ -660,8 +683,8 @@ export default function App() {
         {activeTab === "history" && (
           <NoteHistory
             entries={entries}
-            clients={clients}
-            activeClients={activeClients}
+            clients={visibleClients}
+            activeClients={visibleActiveClients}
             onViewEntry={(entry) => setViewingEntry(entry)}
             onSwitchToForm={() => switchTab("form")}
           />
@@ -670,9 +693,9 @@ export default function App() {
         {/* Client List */}
         {activeTab === "clients" && (
           <ClientList
-            clients={clients}
+            clients={visibleClients}
             entries={entries}
-            activeClients={activeClients}
+            activeClients={visibleActiveClients}
             onSelectClient={handleSelectClient}
             onAddClient={handleAddClient}
             showArchived={showArchived}
@@ -681,14 +704,14 @@ export default function App() {
         )}
 
         {/* Client Detail */}
-        {activeTab === "clientDetail" && selectedClient && (
+        {activeTab === "clientDetail" && resolvedSelectedClient && (
           <ClientDetail
-            client={clients.find((c) => c.id === selectedClient.id) || selectedClient}
+            client={resolvedSelectedClient}
             entries={clientEntries}
             alerts={allAlerts}
-            audits={audits.filter((a) => a.clientId === selectedClient.id)}
+            audits={audits.filter((a) => a.clientId === resolvedSelectedClient.id)}
             onBack={() => switchTab("clients")}
-            onEdit={() => handleEditClient(clients.find((c) => c.id === selectedClient.id) || selectedClient)}
+            onEdit={() => handleEditClient(resolvedSelectedClient)}
             onDischarge={() => setShowDischargeModal(true)}
             onReactivate={handleReactivateClient}
             onDelete={handleDeleteClient}
@@ -697,9 +720,9 @@ export default function App() {
               setEntryForm({
                 ...EMPTY_ENTRY,
                 date: todayStr(),
-                clientId: selectedClient.id,
-                clientName: selectedClient.clientName,
-                masterCaseNumber: selectedClient.masterCaseNumber || "",
+                clientId: resolvedSelectedClient.id,
+                clientName: resolvedSelectedClient.clientName,
+                masterCaseNumber: resolvedSelectedClient.masterCaseNumber || "",
               });
               setEditingEntryId(null);
               switchTab("form");
@@ -757,9 +780,9 @@ export default function App() {
       )}
 
       {/* Audit Form Modal */}
-      {showAuditForm && selectedClient && (
+      {showAuditForm && resolvedSelectedClient && (
         <AuditForm
-          client={clients.find((c) => c.id === selectedClient.id) || selectedClient}
+          client={resolvedSelectedClient}
           audit={editingAudit}
           onSave={handleSaveAudit}
           onClose={() => { setShowAuditForm(false); setEditingAudit(null); }}
