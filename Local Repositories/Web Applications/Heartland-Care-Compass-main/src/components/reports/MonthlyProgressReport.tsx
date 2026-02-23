@@ -145,21 +145,16 @@ export const MonthlyProgressReport = ({ youth }: MonthlyProgressReportProps) => 
     console.log('Auto-populating form for youth:', youth.firstName, youth.lastName, 'ID:', youth.id);
 
     try {
-      // Calculate date range for the selected month
-      const monthStart = new Date(selectedMonth + "-01");
-      const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-
-      console.log('Selected month range:', format(monthStart, 'yyyy-MM-dd'), 'to', format(monthEnd, 'yyyy-MM-dd'));
-
-      // Fetch case notes for the selected month
+      // Fetch ALL case notes for this youth
       const progressNotes = await fetchProgressNotesAPI(youth.id).catch(() => fetchProgressNotes(youth.id));
 
       console.log('Fetched case notes:', progressNotes.length);
 
-      const monthProgressNotes = progressNotes.filter(note => {
-        if (!note.date) return false;
-        const noteDate = new Date(note.date);
-        return noteDate >= monthStart && noteDate <= monthEnd;
+      // Use all notes (most recent first) for richer auto-population
+      const monthProgressNotes = [...progressNotes].sort((a, b) => {
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        return dateB - dateA;
       });
 
       // Calculate length of stay
@@ -720,30 +715,34 @@ export const MonthlyProgressReport = ({ youth }: MonthlyProgressReportProps) => 
         description: "Analyzing case notes to generate comprehensive summaries...",
       });
 
-      // Calculate date range for the selected month
       const monthStart = new Date(selectedMonth + "-01");
-      const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+      const reportMonthLabel = format(monthStart, 'MMMM yyyy');
 
-      // Fetch case notes for the selected month
-      const progressNotes = await fetchProgressNotesAPI(youth.id).catch(() => fetchProgressNotes(youth.id));
+      // Fetch ALL case notes for this youth — no month filter so AI has full history
+      const allProgressNotes = await fetchProgressNotesAPI(youth.id).catch(() => fetchProgressNotes(youth.id));
 
-      const monthProgressNotes = progressNotes.filter(note => {
-        if (!note.date) return false;
-        const noteDate = new Date(note.date);
-        return noteDate >= monthStart && noteDate <= monthEnd;
-      });
+      // Sort newest first, cap at 60 notes to keep prompt size manageable
+      const notesForAI = [...allProgressNotes]
+        .sort((a, b) => {
+          const dateA = a.date ? new Date(a.date).getTime() : 0;
+          const dateB = b.date ? new Date(b.date).getTime() : 0;
+          return dateB - dateA;
+        })
+        .slice(0, 60);
+
+      console.log(`AI populate: using ${notesForAI.length} of ${allProgressNotes.length} total notes`);
 
       // First, run basic auto-populate to get demographic data
       await autoPopulateForm();
 
-      // Prepare case notes summary for AI
-      const caseNotesText = monthProgressNotes.map(note => {
+      // Build case notes text — include date so AI can reference recency
+      const caseNotesText = notesForAI.map(note => {
         const content = extractCaseNoteContent(note);
         const date = note.date ? format(new Date(note.date), 'MMM d, yyyy') : 'No date';
         return `[${date}] ${content}`;
       }).join('\n\n');
 
-      const baseInstruction = `You are a clinical professional writing a monthly progress report for ${youth.firstName} ${youth.lastName} at Heartland Boys Home. Based only on the case notes below, write a professional 2-3 paragraph summary. Do not mention points, scores, levels, or ratings. Do not use markdown formatting (no **, no #). Just write plain professional text.\n\nCase Notes:\n${caseNotesText || 'No case notes available for this period.'}`;
+      const baseInstruction = `You are a clinical professional writing a monthly progress report for ${youth.firstName} ${youth.lastName} at Heartland Boys Home for the reporting period: ${reportMonthLabel}. Using the case notes below (which span the youth's full history), write a professional 2-3 paragraph summary. Prioritize recent notes but draw on the full history for context. Do not mention points, scores, levels, or ratings. Do not use markdown formatting (no **, no #). Just write plain professional text.\n\nCase Notes (most recent first):\n${caseNotesText || 'No case notes available in the system.'}`;
 
       // Use AI to generate each section based on case notes
       const aiPrompts = {
@@ -765,7 +764,8 @@ export const MonthlyProgressReport = ({ youth }: MonthlyProgressReportProps) => 
         try {
           const response = await aiService.queryData(prompt, {
             youth,
-            month: format(monthStart, 'MMMM yyyy'),
+            reportMonth: reportMonthLabel,
+            totalNotesProvided: notesForAI.length,
             caseNotes: caseNotesText
           });
 
