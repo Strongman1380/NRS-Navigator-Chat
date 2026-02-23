@@ -282,7 +282,7 @@ export const MonthlyProgressReport = ({ youth }: MonthlyProgressReportProps) => 
     if (highlights.length > 0) {
       return `During this reporting period, the following assistance was documented: ${highlights.join(' ')}`;
     }
-    return `${progressNotes.length} case notes were documented during this period. Review notes for details on assistance provided.`;
+    return `${progressNotes.length} reports were documented during this period. Review reports for details on assistance provided.`;
   };
 
   // Generate Incredible Opportunity summary from case notes
@@ -316,7 +316,7 @@ export const MonthlyProgressReport = ({ youth }: MonthlyProgressReportProps) => 
     if (highlights.length > 0) {
       return `${youth.firstName}'s social interactions during this period include: ${highlights.join(' ')}`;
     }
-    return `${progressNotes.length} case notes documented during this period. Review notes for details on social development.`;
+    return `${progressNotes.length} reports documented during this period. Review reports for details on social development.`;
   };
 
   // Generate Academic summary - always starts with school placement, adds case note details
@@ -358,7 +358,7 @@ export const MonthlyProgressReport = ({ youth }: MonthlyProgressReportProps) => 
     if (highlights.length > 0) {
       return `${youth.firstName}'s behavioral documentation during this reporting period includes: ${highlights.join(' ')}`;
     }
-    return `${progressNotes.length} case notes were documented during this period. Review notes for details on behavioral progress.`;
+    return `${progressNotes.length} reports were documented during this period. Review reports for details on behavioral progress.`;
   };
 
   const generateFutureGoals = (_youth: Youth, _progressNotes: any[]): string => {
@@ -503,9 +503,9 @@ export const MonthlyProgressReport = ({ youth }: MonthlyProgressReportProps) => 
 
       const highlights = collectCaseNoteHighlights(treatmentNotes.length > 0 ? treatmentNotes : progressNotes, 5);
       if (highlights.length > 0) {
-        summary += `Case notes from this period document: ${highlights.join(' ')}`;
+        summary += `Reports from this period document: ${highlights.join(' ')}`;
       } else {
-        summary += `${progressNotes.length} case notes were documented during this period.`;
+        summary += `${progressNotes.length} reports were documented during this period.`;
       }
     }
 
@@ -669,15 +669,15 @@ export const MonthlyProgressReport = ({ youth }: MonthlyProgressReportProps) => 
 
   const getEnhancementPrompt = (fieldName: keyof MonthlyReportData, currentValue: string): string => {
     const prompts: Record<string, string> = {
-      assistanceSummary: `Take these brief notes about program participation and assistance provided to ${youth.firstName} and expand them into a professional summary covering support services, resources, referrals, and advocacy efforts. Do not include any mention of points, scores, or levels:\n\n"${currentValue}"\n\nExpand this into 2-3 well-written paragraphs with clinical language. Do not use markdown formatting.`,
+      assistanceSummary: `Take this program report for ${youth.firstName} and expand it into a professional summary covering support services, resources, referrals, and advocacy efforts. Do not include any mention of points, scores, or levels:\n\n"${currentValue}"\n\nExpand this into 2-3 well-written paragraphs with clinical language. Do not use markdown formatting.`,
 
-      academicSummary: `Take these brief notes about ${youth.firstName}'s academic progress and expand them into a professional summary. Note that ${youth.firstName} attends the Heartland Boys Home Independent School, managed by Berniklau Education Solutions. Do not include any mention of points, scores, or levels:\n\n"${currentValue}"\n\nExpand this into 2-3 well-written paragraphs. Do not use markdown formatting.`,
+      academicSummary: `Take this academic report for ${youth.firstName} and expand it into a professional summary. Note that ${youth.firstName} attends the Heartland Boys Home Independent School, managed by Berniklau Education Solutions. Do not include any mention of points, scores, or levels:\n\n"${currentValue}"\n\nExpand this into 2-3 well-written paragraphs. Do not use markdown formatting.`,
 
-      behavioralSummary: `Take these brief notes about ${youth.firstName}'s behavioral patterns and expand them into a professional summary covering incidents, compliance, response to redirection, and overall behavioral progress. Do not include any mention of points, scores, or levels:\n\n"${currentValue}"\n\nExpand this into 2-3 well-written paragraphs with clinical language. Do not use markdown formatting.`,
+      behavioralSummary: `Take this behavioral report for ${youth.firstName} and expand it into a professional summary covering incidents, compliance, response to redirection, and overall behavioral progress. Do not include any mention of points, scores, or levels:\n\n"${currentValue}"\n\nExpand this into 2-3 well-written paragraphs with clinical language. Do not use markdown formatting.`,
 
-      socialSummary: `Take these brief notes about ${youth.firstName}'s social development and expand them into a comprehensive summary covering peer interactions, relationships with staff, communication skills, and social growth. Do not include any mention of points, scores, or levels:\n\n"${currentValue}"\n\nExpand this into 2-3 well-written paragraphs with clinical language. Do not use markdown formatting.`,
+      socialSummary: `Take this social development report for ${youth.firstName} and expand it into a comprehensive summary covering peer interactions, relationships with staff, communication skills, and social growth. Do not include any mention of points, scores, or levels:\n\n"${currentValue}"\n\nExpand this into 2-3 well-written paragraphs with clinical language. Do not use markdown formatting.`,
 
-      treatmentProgressSummary: `Take these brief notes about ${youth.firstName}'s treatment progress and expand them into a comprehensive summary covering therapy participation, clinical observations, and progress. Do not include any mention of points, scores, or levels:\n\n"${currentValue}"\n\nExpand this into 2-3 well-written paragraphs with clinical language. Do not use markdown formatting.`,
+      treatmentProgressSummary: `Take this treatment progress report for ${youth.firstName} and expand it into a comprehensive summary covering therapy participation, clinical observations, and progress. Do not include any mention of points, scores, or levels:\n\n"${currentValue}"\n\nExpand this into 2-3 well-written paragraphs with clinical language. Do not use markdown formatting.`,
     };
 
     return prompts[fieldName] || `Enhance and expand the following text for ${youth.firstName}'s monthly progress report. Do not include any mention of points, scores, or levels. Do not use markdown formatting:\n\n"${currentValue}"\n\nExpand this into clear, professional paragraphs.`;
@@ -702,7 +702,7 @@ export const MonthlyProgressReport = ({ youth }: MonthlyProgressReportProps) => 
 
     if (hasData) {
       const confirmed = confirm(
-        'Some sections already have content. AI will generate comprehensive summaries for ALL sections based on case notes and documentation. Continue?'
+        'Some sections already have content. AI will generate comprehensive summaries for ALL sections based on reports and documentation. Continue?'
       );
       if (!confirmed) return;
     }
@@ -712,49 +712,79 @@ export const MonthlyProgressReport = ({ youth }: MonthlyProgressReportProps) => 
     try {
       toast({
         title: "AI Processing",
-        description: "Analyzing case notes to generate comprehensive summaries...",
+        description: "Analyzing reports to generate comprehensive summaries...",
       });
 
       const monthStart = new Date(selectedMonth + "-01");
       const reportMonthLabel = format(monthStart, 'MMMM yyyy');
 
-      // Fetch ALL case notes for this youth — no month filter so AI has full history
+      // Fetch ALL reports for this youth
       const allProgressNotes = await fetchProgressNotesAPI(youth.id).catch(() => fetchProgressNotes(youth.id));
 
-      // Sort newest first, cap at 60 notes to keep prompt size manageable
-      const notesForAI = [...allProgressNotes]
+      // Separate reporting period reports from historical context
+      const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+      const periodReports = allProgressNotes.filter(note => {
+        if (!note.date) return false;
+        const d = new Date(note.date);
+        return d >= monthStart && d <= monthEnd;
+      });
+
+      // Historical context: up to 30 most recent reports outside the reporting period
+      const historicalReports = [...allProgressNotes]
+        .filter(note => {
+          if (!note.date) return false;
+          const d = new Date(note.date);
+          return d < monthStart;
+        })
         .sort((a, b) => {
           const dateA = a.date ? new Date(a.date).getTime() : 0;
           const dateB = b.date ? new Date(b.date).getTime() : 0;
           return dateB - dateA;
         })
-        .slice(0, 60);
+        .slice(0, 30);
 
-      console.log(`AI populate: using ${notesForAI.length} of ${allProgressNotes.length} total notes`);
+      console.log(`AI populate: ${periodReports.length} reports in period, ${historicalReports.length} historical reports`);
 
       // First, run basic auto-populate to get demographic data
       await autoPopulateForm();
 
-      // Build case notes text — include date so AI can reference recency
-      const caseNotesText = notesForAI.map(note => {
-        const content = extractCaseNoteContent(note);
-        const date = note.date ? format(new Date(note.date), 'MMM d, yyyy') : 'No date';
-        return `[${date}] ${content}`;
-      }).join('\n\n');
+      // Build reporting period text
+      const periodReportsText = periodReports.length > 0
+        ? periodReports.map(note => {
+            const content = extractCaseNoteContent(note);
+            const date = note.date ? format(new Date(note.date), 'MMM d, yyyy') : 'No date';
+            return `[${date}] ${content}`;
+          }).join('\n\n')
+        : 'No reports found for this specific reporting period.';
 
-      const baseInstruction = `You are a clinical professional writing a monthly progress report for ${youth.firstName} ${youth.lastName} at Heartland Boys Home for the reporting period: ${reportMonthLabel}. Using the case notes below (which span the youth's full history), write a professional 2-3 paragraph summary. Prioritize recent notes but draw on the full history for context. Do not mention points, scores, levels, or ratings. Do not use markdown formatting (no **, no #). Just write plain professional text.\n\nCase Notes (most recent first):\n${caseNotesText || 'No case notes available in the system.'}`;
+      // Build historical context text
+      const historicalText = historicalReports.length > 0
+        ? historicalReports.map(note => {
+            const content = extractCaseNoteContent(note);
+            const date = note.date ? format(new Date(note.date), 'MMM d, yyyy') : 'No date';
+            return `[${date}] ${content}`;
+          }).join('\n\n')
+        : '';
+
+      const caseNotesText = periodReportsText; // kept for context object below
+
+      const baseInstruction = `You are a clinical professional writing a monthly progress report for ${youth.firstName} ${youth.lastName} at Heartland Boys Home. The reporting period is ${reportMonthLabel}. Write a professional 2-3 paragraph summary. Do not mention points, scores, levels, or ratings. Do not use markdown formatting (no **, no #). Just write plain professional text.
+
+REPORTING PERIOD REPORTS (${reportMonthLabel}):
+${periodReportsText}
+${historicalText ? `\nHISTORICAL CONTEXT (prior reports for reference on overall progress):\n${historicalText}` : ''}`;
 
       // Use AI to generate each section based on case notes
       const aiPrompts = {
-        assistanceSummary: `${baseInstruction}\n\nFocus on: program participation, assistance provided, support services, resources, referrals, advocacy, appointments, and coordination efforts.`,
+        assistanceSummary: `${baseInstruction}\n\nUsing the reporting period reports above, focus on: program participation, assistance provided, support services, resources, referrals, advocacy, appointments, and coordination efforts. Reference historical reports only to describe progress over time.`,
 
-        academicSummary: `${baseInstruction}\n\nFocus on: academic performance, school attendance, grades, educational progress, and classroom behavior. Note: ${youth.firstName} attends the Heartland Boys Home Independent School, managed by Berniklau Education Solutions.`,
+        academicSummary: `${baseInstruction}\n\nUsing the reporting period reports above, focus on: academic performance, school attendance, grades, educational progress, and classroom behavior. Note: ${youth.firstName} attends the Heartland Boys Home Independent School, managed by Berniklau Education Solutions. Reference historical reports only to describe progress over time.`,
 
-        behavioralSummary: `${baseInstruction}\n\nFocus on: behavioral patterns, incidents, compliance with rules, response to redirection, disciplinary actions, and overall behavioral progress or challenges.`,
+        behavioralSummary: `${baseInstruction}\n\nUsing the reporting period reports above, focus on: behavioral patterns, incidents, compliance with rules, response to redirection, disciplinary actions, and overall behavioral progress or challenges. Reference historical reports only to describe progress over time.`,
 
-        socialSummary: `${baseInstruction}\n\nFocus on: social development, peer interactions, relationships with staff, communication skills, conflict resolution, cooperation, and group dynamics.`,
+        socialSummary: `${baseInstruction}\n\nUsing the reporting period reports above, focus on: social development, peer interactions, relationships with staff, communication skills, conflict resolution, cooperation, and group dynamics. Reference historical reports only to describe progress over time.`,
 
-        treatmentProgressSummary: `${baseInstruction}\n\nFocus on: treatment progress, therapy participation, clinical observations, coping skills, and therapeutic interventions.\n\nAdditional context:\n- Current Diagnoses: ${youth.currentDiagnoses || youth.diagnoses || 'Not documented'}\n- Current Counseling: ${youth.currentCounseling?.join(', ') || 'Not specified'}\n- Therapist: ${youth.therapistName || 'Not specified'}`,
+        treatmentProgressSummary: `${baseInstruction}\n\nUsing the reporting period reports above, focus on: treatment progress, therapy participation, clinical observations, coping skills, and therapeutic interventions. Reference historical reports only to describe progress over time.\n\nAdditional context:\n- Current Diagnoses: ${youth.currentDiagnoses || youth.diagnoses || 'Not documented'}\n- Current Counseling: ${youth.currentCounseling?.join(', ') || 'Not specified'}\n- Therapist: ${youth.therapistName || 'Not specified'}`,
       };
 
       // Generate AI summaries for each section
@@ -782,7 +812,7 @@ export const MonthlyProgressReport = ({ youth }: MonthlyProgressReportProps) => 
 
       toast({
         title: "Success",
-        description: "All sections have been populated with AI-generated summaries from case notes. Review and edit as needed.",
+        description: "All sections have been populated with AI-generated summaries from reports. Review and edit as needed.",
       });
 
     } catch (error: any) {
@@ -1192,7 +1222,7 @@ export const MonthlyProgressReport = ({ youth }: MonthlyProgressReportProps) => 
                   <Textarea
                     value={reportData.academicSummary}
                     onChange={(e) => handleFieldChange('academicSummary', e.target.value)}
-                    placeholder="Academic placement and progress. Auto-populated with Heartland Boys Home Independent School / Berniklau Education Solutions info plus any academic case note details..."
+                    placeholder="Academic placement and progress. Auto-populated with Heartland Boys Home Independent School / Berniklau Education Solutions info plus any academic report details..."
                     className="min-h-[150px]"
                   />
                 </div>
@@ -1221,7 +1251,7 @@ export const MonthlyProgressReport = ({ youth }: MonthlyProgressReportProps) => 
                   <Textarea
                     value={reportData.behavioralSummary}
                     onChange={(e) => handleFieldChange('behavioralSummary', e.target.value)}
-                    placeholder="Summary of behavioral patterns, incidents, compliance, response to redirection, and overall behavioral progress drawn from case notes..."
+                    placeholder="Summary of behavioral patterns, incidents, compliance, response to redirection, and overall behavioral progress drawn from reports..."
                     className="min-h-[150px]"
                   />
                 </div>
