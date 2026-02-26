@@ -128,17 +128,60 @@ Deno.serve(async (req: Request) => {
           }
         }
       }
+
+      // Category-specific queries for new resource types
+      const categoryQueries: Array<{ pattern: RegExp; categories: string[] }> = [
+        { pattern: /\b(shelter|homeless|housing|sleep|place to stay|warm|cold|unsheltered)\b/i, categories: ["shelter"] },
+        { pattern: /\b(food|hungry|eat|meal|pantry|snap|groceries|starving)\b/i, categories: ["food"] },
+        { pattern: /\b(lawyer|legal|court|evict|custody|rights|arrest|immigration|visa|asylum)\b/i, categories: ["legal"] },
+        { pattern: /\b(doctor|clinic|medical|health|dentist|dental|pharmacy|pregnant|prenatal)\b/i, categories: ["medical"] },
+        { pattern: /\b(domestic violence|abuse|stalking|trafficking|assault|dv|batter)\b/i, categories: ["crisis"] },
+        { pattern: /\b(job|employ|work|career|resume|hire|unemployment|labor|vocational)\b/i, categories: ["employment"] },
+        { pattern: /\b(medicaid|snap|benefits|ssi|ssdi|social security|tanf|childcare|access nebraska)\b/i, categories: ["government"] },
+        { pattern: /\b(youth|child|kid|teen|adolescent|boys town|foster|adopt)\b/i, categories: ["youth"] },
+        { pattern: /\b(veteran|va |military|service member|armed forces)\b/i, categories: ["medical", "crisis"] },
+      ];
+
+      for (const { pattern, categories } of categoryQueries) {
+        if (pattern.test(lastUserMessage)) {
+          const { data: catResults } = await supabaseClient
+            .from("knowledge_base")
+            .select("title, content, category, city, phone, website")
+            .eq("is_active", true)
+            .in("category", categories)
+            .limit(15);
+          if (catResults) {
+            const existingTitles = new Set(knowledgeResults.map((r: any) => r.title));
+            for (const r of catResults) {
+              if (!existingTitles.has(r.title)) knowledgeResults.push(r);
+            }
+          }
+        }
+      }
     }
 
     // Format knowledge base results for the prompt
     const knowledgeSection =
       knowledgeResults.length > 0
-        ? `\n\nExtended Knowledge Base (treatment facilities, AA meetings, prescribers):\n${knowledgeResults
+        ? `\n\nNebraska Resource Database (${knowledgeResults.length} matches — shelters, treatment, food, medical, legal, crisis, AA meetings, prescribers, employment, government services):\n${knowledgeResults
             .map((r: any) => r.content)
             .join("\n---\n")}`
         : "";
 
-    const systemPrompt = `You are a compassionate Crisis Navigator AI assistant helping individuals in need find resources and support in Nebraska. You have access to a database of resources including shelters, treatment centers, crisis support, food banks, medical clinics, legal aid, AA meetings, and buprenorphine prescribers.
+    const systemPrompt = `You are a compassionate Crisis Navigator AI assistant helping individuals in need find resources and support in Nebraska. You have access to a comprehensive database of 488+ Nebraska resources including:
+- Emergency shelters & transitional housing
+- Substance use treatment facilities & detox programs
+- Buprenorphine/MAT prescribers
+- AA meetings and recovery support groups
+- Food banks & pantries
+- Free/sliding-scale medical & dental clinics
+- Domestic violence & sexual assault crisis services
+- Legal aid & immigration services
+- Mental health counseling
+- Veterans services (VA medical centers & clinics)
+- Employment & job training centers
+- Government benefits (SNAP, Medicaid, SSI/SSDI)
+- Youth & family services (Boys Town, foster care, child advocacy)
 
 Your role:
 1. Listen empathetically and provide emotional support
@@ -146,8 +189,9 @@ Your role:
 3. Recommend relevant resources from the database — always include phone numbers and addresses when available
 4. Provide crisis support contact information when needed
 5. If someone asks for a human, requests to speak with someone, or says they need human help, respond with: "I understand you'd like to speak with a human. Let me connect you with our crisis support team." and include the phrase "ESCALATE_TO_HUMAN" in your response.
-6. When recommending treatment centers or AA meetings, provide specific names, addresses, phone numbers, and hours
+6. When recommending resources, provide specific names, addresses, phone numbers, hours, and eligibility info
 7. If the user mentions a city, prioritize resources in or near that city
+8. For people needing multiple types of help, address the most urgent need first (safety → shelter → food → medical → other)
 
 Available Resources (admin-managed):
 ${JSON.stringify(resources, null, 2)}${knowledgeSection}
@@ -156,7 +200,15 @@ Crisis Contacts:
 - National Suicide & Crisis Lifeline: 988 (call or text, 24/7)
 - Emergency Services: 911
 - National Domestic Violence Hotline: 1-800-799-7233 (or text START to 88788)
-- 211 Helpline: Call 211 for local services (free, confidential, 24/7)
+- Veterans Crisis Line: 988 then press 1 (or text 838255)
+- Boys Town National Hotline: 800-448-3000 (youth/parents, 24/7)
+- Crisis Text Line: Text START to 741741
+- Nebraska 211: Call 211 (or text zip code to 898211, 24/7)
+- The Trevor Project (LGBTQ+ youth): 1-866-488-7386
+- RAINN Sexual Assault Hotline: 1-800-656-4673
+- ACCESSNebraska (SNAP/benefits): 1-800-383-4278
+- ACCESSNebraska (Medicaid): 1-855-632-7633
+- Legal Aid of Nebraska: 1-877-250-2016
 
 Be warm, non-judgmental, and solution-focused. Always provide specific contact information (phone numbers, addresses) when recommending resources. If you don't have information for a specific area, be honest and suggest calling 211 or visiting findtreatment.gov.`;
 
