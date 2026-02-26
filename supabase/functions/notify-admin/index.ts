@@ -15,6 +15,15 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
  *   TWILIO_FROM_NUMBER   - Twilio phone number to send from
  */
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -35,8 +44,22 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { conversationId, reason, preview, priority, visitorName }: NotifyRequest =
-      await req.json();
+    const body = await req.json();
+    const { conversationId, reason, preview, priority, visitorName } = body as NotifyRequest;
+
+    // Validate required fields
+    if (!conversationId || typeof conversationId !== "string") {
+      return new Response(
+        JSON.stringify({ error: "Missing or invalid conversationId" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (!reason || typeof reason !== "string") {
+      return new Response(
+        JSON.stringify({ error: "Missing or invalid reason" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const adminEmail = Deno.env.get("ADMIN_EMAIL");
     const adminPhone = Deno.env.get("ADMIN_PHONE");
@@ -44,6 +67,16 @@ Deno.serve(async (req: Request) => {
     const twilioSid = Deno.env.get("TWILIO_ACCOUNT_SID");
     const twilioToken = Deno.env.get("TWILIO_AUTH_TOKEN");
     const twilioFrom = Deno.env.get("TWILIO_FROM_NUMBER");
+
+    // If no notification channels are configured, return early
+    const hasEmail = adminEmail && resendKey;
+    const hasSms = adminPhone && twilioSid && twilioToken && twilioFrom;
+    if (!hasEmail && !hasSms) {
+      return new Response(
+        JSON.stringify({ error: "No notification channels configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const shortId = conversationId.slice(0, 8);
     const timestamp = new Date().toLocaleString("en-US", {
@@ -75,6 +108,10 @@ Deno.serve(async (req: Request) => {
     // ─── Send Email via Resend ─────────────────────────────────
     if (adminEmail && resendKey) {
       try {
+        const escapedVisitorName = escapeHtml(visitorName || "");
+        const escapedPreview = escapeHtml(preview || "");
+        const escapedPriority = escapeHtml(priority || "");
+
         const emailHtml = `
           <div style="font-family: -apple-system, sans-serif; max-width: 500px;">
             <div style="background: ${reason === "crisis_detected" ? "#DC2626" : "#2563EB"}; color: white; padding: 16px 20px; border-radius: 12px 12px 0 0;">
@@ -86,14 +123,14 @@ Deno.serve(async (req: Request) => {
                   <td style="padding: 6px 0; color: #64748B;">Conversation</td>
                   <td style="padding: 6px 0; font-weight: 600;">#${shortId}</td>
                 </tr>
-                ${visitorName ? `<tr><td style="padding: 6px 0; color: #64748B;">Visitor</td><td style="padding: 6px 0;">${visitorName}</td></tr>` : ""}
-                ${priority ? `<tr><td style="padding: 6px 0; color: #64748B;">Priority</td><td style="padding: 6px 0; font-weight: 600; color: ${priority === "urgent" ? "#DC2626" : "#F59E0B"};">${priority.toUpperCase()}</td></tr>` : ""}
+                ${visitorName ? `<tr><td style="padding: 6px 0; color: #64748B;">Visitor</td><td style="padding: 6px 0;">${escapedVisitorName}</td></tr>` : ""}
+                ${priority ? `<tr><td style="padding: 6px 0; color: #64748B;">Priority</td><td style="padding: 6px 0; font-weight: 600; color: ${priority === "urgent" ? "#DC2626" : "#F59E0B"};">${escapedPriority.toUpperCase()}</td></tr>` : ""}
                 <tr>
                   <td style="padding: 6px 0; color: #64748B;">Time</td>
                   <td style="padding: 6px 0;">${timestamp} CT</td>
                 </tr>
               </table>
-              ${preview ? `<div style="margin-top: 12px; padding: 12px; background: white; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 14px; color: #334155;"><strong>Message preview:</strong><br/>"${preview.slice(0, 200)}${preview.length > 200 ? "..." : ""}"</div>` : ""}
+              ${preview ? `<div style="margin-top: 12px; padding: 12px; background: white; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 14px; color: #334155;"><strong>Message preview:</strong><br/>"${escapedPreview.slice(0, 200)}${escapedPreview.length > 200 ? "..." : ""}"</div>` : ""}
               <p style="margin-top: 16px; font-size: 13px; color: #64748B;">Open your admin dashboard to respond to this conversation.</p>
             </div>
           </div>

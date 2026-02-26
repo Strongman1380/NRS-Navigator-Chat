@@ -229,22 +229,44 @@ Be warm, non-judgmental, and solution-focused. Always provide specific contact i
         .eq("id", conversationId)
         .single();
 
-      // Fire notification to admin (email + SMS) — don't await to avoid blocking response
+      // Fire notification to admin (email + SMS)
+      // For crisis events, await the notification and persist a flag on failure so a worker can retry.
+      // For non-crisis events, fire-and-forget to avoid blocking the response.
       const notifyUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/notify-admin`;
-      fetch(notifyUrl, {
+      const notifyPayload = {
+        conversationId,
+        reason: isCrisis ? "crisis_detected" : "human_requested",
+        preview: firstUserMsg.slice(0, 200),
+        priority: isCrisis ? "urgent" : convoData?.priority || "high",
+        visitorName: convoData?.visitor_name || null,
+      };
+      const notifyOptions = {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
         },
-        body: JSON.stringify({
-          conversationId,
-          reason: isCrisis ? "crisis_detected" : "human_requested",
-          preview: firstUserMsg.slice(0, 200),
-          priority: isCrisis ? "urgent" : convoData?.priority || "high",
-          visitorName: convoData?.visitor_name || null,
-        }),
-      }).catch((e) => console.error("Notify-admin call failed:", e));
+        body: JSON.stringify(notifyPayload),
+      };
+
+      if (isCrisis) {
+        try {
+          const notifyRes = await fetch(notifyUrl, notifyOptions);
+          if (!notifyRes.ok) {
+            throw new Error(`Notify-admin returned ${notifyRes.status}`);
+          }
+        } catch (e) {
+          console.error("Crisis notify-admin call failed, setting pending flag:", e);
+          await supabaseClient
+            .from("conversations")
+            .update({ pending_notification: true })
+            .eq("id", conversationId);
+        }
+      } else {
+        fetch(notifyUrl, notifyOptions).catch((e) =>
+          console.error("Notify-admin call failed:", e)
+        );
+      }
     }
 
     return new Response(
