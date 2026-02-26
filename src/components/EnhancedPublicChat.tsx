@@ -469,12 +469,12 @@ export default function EnhancedPublicChat() {
       {/* Header - safe area top for notched iPhones */}
       <div className="bg-white border-b border-slate-200 shadow-sm safe-top">
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-4 safe-x">
-          <div className="mb-2 sm:mb-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[11px] sm:text-xs text-slate-700">
-                Chat is private, secure, and confidential. Optional: support this mission to help more people receive resources statewide.
-              </p>
-              {stripeDonationUrl ? (
+          {stripeDonationUrl && (
+            <div className="mb-2 sm:mb-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] sm:text-xs text-slate-700">
+                  Chat is private, secure, and confidential. Optional: support this mission to help more people receive resources statewide.
+                </p>
                 <a
                   href={stripeDonationUrl}
                   target="_blank"
@@ -483,13 +483,9 @@ export default function EnhancedPublicChat() {
                 >
                   Donate
                 </a>
-              ) : (
-                <p className="text-[10px] sm:text-[11px] text-slate-500">
-                  Set `VITE_STRIPE_DONATION_URL` to enable donations.
-                </p>
-              )}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="flex items-center justify-between">
             <div className="min-w-0 flex-1">
