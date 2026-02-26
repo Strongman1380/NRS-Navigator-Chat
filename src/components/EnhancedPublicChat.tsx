@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Loader2, Phone, AlertCircle, MapPin, Home, User } from 'lucide-react';
+import { Send, Loader2, Phone, AlertCircle, MapPin, Home, User, ShieldCheck, Info } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { generateAIResponse } from '../lib/aiResponses';
@@ -27,6 +27,10 @@ interface Resource {
 export default function EnhancedPublicChat() {
   const { user } = useAuth();
   const stripeDonationUrl = import.meta.env.VITE_STRIPE_DONATION_URL as string | undefined;
+  const [hasConsented, setHasConsented] = useState(() => {
+    return sessionStorage.getItem('nrs_consent_acknowledged') === 'true';
+  });
+  const [consentChecked, setConsentChecked] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -35,9 +39,14 @@ export default function EnhancedPublicChat() {
   const [isHumanConnected, setIsHumanConnected] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const handleConsent = () => {
+    sessionStorage.setItem('nrs_consent_acknowledged', 'true');
+    setHasConsented(true);
+  };
+
   useEffect(() => {
-    initializeChat();
-  }, []);
+    if (hasConsented) initializeChat();
+  }, [hasConsented]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -311,6 +320,149 @@ export default function EnhancedPublicChat() {
   const handleEmergencyCall = () => {
     window.location.href = 'tel:911';
   };
+
+  // ─── Consent / Disclaimer Screen ──────────────────────────────
+  if (!hasConsented) {
+    return (
+      <div className="flex flex-col h-screen-safe bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10 safe-x">
+
+            {/* Logo / Title */}
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-100 rounded-2xl mb-3">
+                <ShieldCheck className="w-7 h-7 text-blue-600" />
+              </div>
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">NRS Navigator</h1>
+              <p className="text-sm text-slate-600 mt-1">Resource Navigation Support</p>
+            </div>
+
+            {/* Disclaimer card */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+
+              {/* Important Notice header */}
+              <div className="bg-blue-600 px-4 sm:px-6 py-3">
+                <h2 className="text-white font-semibold text-sm sm:text-base flex items-center gap-2">
+                  <Info className="w-4 h-4 flex-shrink-0" />
+                  Important Information — Please Read Before Continuing
+                </h2>
+              </div>
+
+              <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-4 text-[13px] sm:text-sm text-slate-700 leading-relaxed">
+
+                {/* What this is */}
+                <div>
+                  <h3 className="font-semibold text-slate-900 mb-1">What This Service Is</h3>
+                  <p>
+                    NRS Navigator is an <strong>AI-assisted resource navigation tool</strong> that helps connect you with community resources such as shelters, food assistance, treatment programs, medical care, and other services in Nebraska. It provides <strong>general information and resource referrals only</strong>.
+                  </p>
+                </div>
+
+                {/* What this is NOT */}
+                <div>
+                  <h3 className="font-semibold text-slate-900 mb-1">What This Service Is NOT</h3>
+                  <ul className="list-disc list-inside space-y-1 text-slate-600">
+                    <li>This is <strong>not therapy, counseling, or medical advice</strong></li>
+                    <li>This tool does <strong>not diagnose, treat, or prevent</strong> any mental health or medical condition</li>
+                    <li>AI responses are <strong>not a substitute</strong> for professional help from a licensed counselor, therapist, or medical provider</li>
+                    <li>The AI may occasionally provide <strong>inaccurate or incomplete information</strong> — always verify resource details independently</li>
+                  </ul>
+                </div>
+
+                {/* AI Disclosure */}
+                <div>
+                  <h3 className="font-semibold text-slate-900 mb-1">AI Disclosure</h3>
+                  <p>
+                    You are initially interacting with an <strong>artificial intelligence system</strong>, not a human. The AI is designed to help with basic resource navigation questions. A trained human support specialist monitors conversations and may join the chat when more detailed support is needed. You will be notified when a human joins the conversation.
+                  </p>
+                </div>
+
+                {/* Human Oversight */}
+                <div>
+                  <h3 className="font-semibold text-slate-900 mb-1">Human Oversight</h3>
+                  <p>
+                    All conversations are monitored by a human support team. If the system detects signs of crisis, complex needs, or if you request to speak with a person, your conversation will be <strong>escalated to a live support specialist</strong>. You can request a human at any time by typing "I'd like to speak with someone."
+                  </p>
+                </div>
+
+                {/* Crisis Resources */}
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 sm:p-4">
+                  <h3 className="font-semibold text-red-800 mb-2">If You Are in Crisis</h3>
+                  <p className="text-red-700 mb-2">
+                    If you are experiencing a mental health emergency, thoughts of self-harm, or are in immediate danger, please contact emergency services directly:
+                  </p>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center justify-center w-6 h-6 bg-red-600 text-white rounded-full text-xs font-bold flex-shrink-0">!</span>
+                      <span className="font-medium text-red-800">988</span>
+                      <span className="text-red-700">— Suicide & Crisis Lifeline (call or text, 24/7)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center justify-center w-6 h-6 bg-red-600 text-white rounded-full text-xs font-bold flex-shrink-0">!</span>
+                      <span className="font-medium text-red-800">911</span>
+                      <span className="text-red-700">— Emergency Services</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center justify-center w-6 h-6 bg-orange-500 text-white rounded-full text-xs font-bold flex-shrink-0">!</span>
+                      <span className="font-medium text-red-800">1-800-799-7233</span>
+                      <span className="text-red-700">— National Domestic Violence Hotline</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Privacy */}
+                <div>
+                  <h3 className="font-semibold text-slate-900 mb-1">Privacy & Data</h3>
+                  <p>
+                    We collect only the minimum information necessary to connect you with resources. Your conversation is stored securely and is accessible only to authorized support staff. We do not sell or share your data with third parties. You are not required to provide your name or any identifying information to use this service.
+                  </p>
+                </div>
+
+                {/* Limitations */}
+                <div>
+                  <h3 className="font-semibold text-slate-900 mb-1">Limitations & Accuracy</h3>
+                  <p>
+                    Resource availability, contact information, and eligibility requirements may change without notice. While we make every effort to keep our database current, we recommend calling ahead to confirm details. The AI system may occasionally misinterpret your needs — if a response seems off, please rephrase or ask to speak with a human.
+                  </p>
+                </div>
+
+                {/* Checkbox */}
+                <div className="border-t border-slate-200 pt-4 mt-4">
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={consentChecked}
+                      onChange={(e) => setConsentChecked(e.target.checked)}
+                      className="mt-0.5 w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer flex-shrink-0"
+                    />
+                    <span className="text-slate-700 text-[13px] sm:text-sm leading-relaxed group-hover:text-slate-900 transition-colors">
+                      I have read and understand the above information. I acknowledge that this is an <strong>AI-assisted resource navigation tool</strong>, not a substitute for professional counseling, therapy, or medical care. I understand that a human may monitor and join this conversation, and that I should contact 988 or 911 if I am in immediate crisis.
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Continue button */}
+              <div className="px-4 sm:px-6 pb-4 sm:pb-5">
+                <button
+                  onClick={handleConsent}
+                  disabled={!consentChecked}
+                  className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm sm:text-base hover:bg-blue-700 active:bg-blue-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  I Understand — Continue to Chat
+                </button>
+              </div>
+            </div>
+
+            {/* Footer note */}
+            <p className="text-center text-[11px] sm:text-xs text-slate-400 mt-4">
+              NRS Navigator is not a licensed healthcare provider. This service complies with applicable state and federal regulations regarding AI-assisted communications.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen-safe bg-gradient-to-br from-slate-50 to-slate-100">
