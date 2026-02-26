@@ -410,6 +410,25 @@ export default function EnhancedPublicChat() {
                   </div>
                 </div>
 
+                {/* Human Staff */}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4">
+                  <h3 className="font-semibold text-blue-900 mb-2">Need a Real Person?</h3>
+                  <p className="text-blue-800 mb-2">
+                    If at any point you would like to speak with a real person, simply say so in the chat (for example, "I'd like to talk to someone") and the AI will connect you with a member of our human support staff.
+                  </p>
+                  <p className="text-blue-800 mb-2">
+                    Our staff is <strong>trauma-informed</strong>, with <strong>over 10 years of experience</strong> working directly in the human services field. The same limitations apply — our staff <strong>will not provide therapeutic insight, diagnoses, or clinical treatment</strong> — but they can provide a compassionate, knowledgeable person to talk to who understands what you're going through and can help guide you to the right resources.
+                  </p>
+                </div>
+
+                {/* Service Area */}
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 sm:p-4">
+                  <h3 className="font-semibold text-amber-900 mb-1">Service Area — Nebraska Only</h3>
+                  <p className="text-amber-800">
+                    This service is currently available only to individuals located in <strong>Nebraska</strong>. If you are reaching out from another state, we encourage you to explore resources in your area by calling <strong>211</strong> (free, confidential, available nationwide 24/7) or visiting <strong>findtreatment.gov</strong>. We appreciate your understanding as we work to expand.
+                  </p>
+                </div>
+
                 {/* Privacy */}
                 <div>
                   <h3 className="font-semibold text-slate-900 mb-1">Privacy & Data</h3>
