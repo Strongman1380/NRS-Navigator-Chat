@@ -47,3 +47,12 @@ input, select, textarea {
 .scroll-smooth {
   -webkit-overflow-scrolling: touch;
 }
+
+/* Slow pulse animation for safety alert banner */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}

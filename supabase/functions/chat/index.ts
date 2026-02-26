@@ -49,28 +49,116 @@ Deno.serve(async (req: Request) => {
 
     const { messages, conversationId }: ChatRequest = await req.json();
 
+    // Fetch admin-managed resources
     const { data: resources } = await supabaseClient
       .from("resources")
       .select("*")
       .eq("is_active", true);
 
-    const systemPrompt = `You are a compassionate Crisis Navigator AI assistant helping individuals in need find resources and support. You have access to a database of resources including shelters, treatment centers, crisis support, food banks, medical clinics, and legal aid.
+    // Extract search terms from the user's last message for knowledge base lookup
+    const lastUserMessage = messages
+      .filter((m) => m.role === "user")
+      .pop()?.content?.toLowerCase() ?? "";
+
+    // Extract city names from the conversation for location filtering
+    const allUserText = messages
+      .filter((m) => m.role === "user")
+      .map((m) => m.content)
+      .join(" ");
+    const cityPattern =
+      /\b(omaha|lincoln|bellevue|grand island|kearney|hastings|north platte|fremont|norfolk|columbus|papillion|la vista|ralston|gretna|scottsbluff|south sioux city|beatrice|lexington|york|seward|plattsmouth|nebraska city|wayne|chadron|sidney|alliance|mccook|broken bow|valentine|ogallala|holdrege|central city)\b/gi;
+    const detectedCities = [
+      ...new Set(
+        (allUserText.match(cityPattern) || []).map(
+          (c: string) => c.charAt(0).toUpperCase() + c.slice(1).toLowerCase()
+        )
+      ),
+    ];
+
+    // Build knowledge base query — use full-text search if we have keywords
+    let knowledgeResults: any[] = [];
+    const searchTerms = lastUserMessage
+      .replace(/[^\w\s]/g, "")
+      .split(/\s+/)
+      .filter((w: string) => w.length > 3)
+      .slice(0, 8);
+
+    if (searchTerms.length > 0 || detectedCities.length > 0) {
+      // Try full-text search first
+      if (searchTerms.length > 0) {
+        const tsQuery = searchTerms.join(" | ");
+        const { data: ftsResults } = await supabaseClient
+          .from("knowledge_base")
+          .select("title, content, category, city, phone, website")
+          .eq("is_active", true)
+          .textSearch("fts", tsQuery)
+          .limit(20);
+        if (ftsResults) knowledgeResults.push(...ftsResults);
+      }
+
+      // Also search by detected city
+      if (detectedCities.length > 0) {
+        const { data: cityResults } = await supabaseClient
+          .from("knowledge_base")
+          .select("title, content, category, city, phone, website")
+          .eq("is_active", true)
+          .in("city", detectedCities)
+          .limit(20);
+        if (cityResults) {
+          // Deduplicate
+          const existingTitles = new Set(knowledgeResults.map((r: any) => r.title));
+          for (const r of cityResults) {
+            if (!existingTitles.has(r.title)) knowledgeResults.push(r);
+          }
+        }
+      }
+
+      // If asking about AA/meetings/recovery, also pull meeting data
+      if (/\b(aa|meeting|recovery|sober|12.?step|alcoholic)\b/i.test(lastUserMessage)) {
+        const { data: meetingResults } = await supabaseClient
+          .from("knowledge_base")
+          .select("title, content, category, city, phone, website")
+          .eq("is_active", true)
+          .eq("category", "aa_meeting")
+          .limit(15);
+        if (meetingResults) {
+          const existingTitles = new Set(knowledgeResults.map((r: any) => r.title));
+          for (const r of meetingResults) {
+            if (!existingTitles.has(r.title)) knowledgeResults.push(r);
+          }
+        }
+      }
+    }
+
+    // Format knowledge base results for the prompt
+    const knowledgeSection =
+      knowledgeResults.length > 0
+        ? `\n\nExtended Knowledge Base (treatment facilities, AA meetings, prescribers):\n${knowledgeResults
+            .map((r: any) => r.content)
+            .join("\n---\n")}`
+        : "";
+
+    const systemPrompt = `You are a compassionate Crisis Navigator AI assistant helping individuals in need find resources and support in Nebraska. You have access to a database of resources including shelters, treatment centers, crisis support, food banks, medical clinics, legal aid, AA meetings, and buprenorphine prescribers.
 
 Your role:
 1. Listen empathetically and provide emotional support
 2. Assess the person's immediate needs
-3. Recommend relevant resources from the database
+3. Recommend relevant resources from the database — always include phone numbers and addresses when available
 4. Provide crisis support contact information when needed
 5. If someone asks for a human, requests to speak with someone, or says they need human help, respond with: "I understand you'd like to speak with a human. Let me connect you with our crisis support team." and include the phrase "ESCALATE_TO_HUMAN" in your response.
+6. When recommending treatment centers or AA meetings, provide specific names, addresses, phone numbers, and hours
+7. If the user mentions a city, prioritize resources in or near that city
 
-Available Resources:
-${JSON.stringify(resources, null, 2)}
+Available Resources (admin-managed):
+${JSON.stringify(resources, null, 2)}${knowledgeSection}
 
 Crisis Contacts:
-- National Suicide & Crisis Lifeline: 988 (24/7)
+- National Suicide & Crisis Lifeline: 988 (call or text, 24/7)
 - Emergency Services: 911
+- National Domestic Violence Hotline: 1-800-799-7233 (or text START to 88788)
+- 211 Helpline: Call 211 for local services (free, confidential, 24/7)
 
-Be warm, non-judgmental, and solution-focused. If you don't have information, be honest and suggest alternative ways to help.`;
+Be warm, non-judgmental, and solution-focused. Always provide specific contact information (phone numbers, addresses) when recommending resources. If you don't have information for a specific area, be honest and suggest calling 211 or visiting findtreatment.gov.`;
 
     const openaiMessages = [
       { role: "system", content: systemPrompt },

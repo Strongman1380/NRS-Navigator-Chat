@@ -13,7 +13,8 @@
     "android:sync": "npm run build && npx cap sync android",
     "android:open": "npx cap open android",
     "android:build": "npm run build && npx cap sync android && cd android && ./gradlew assembleRelease",
-    "android:bundle": "npm run build && npx cap sync android && cd android && ./gradlew bundleRelease"
+    "android:bundle": "npm run build && npx cap sync android && cd android && ./gradlew bundleRelease",
+    "import:knowledge": "node scripts/import-knowledge-base.js"
   },
   "dependencies": {
     "@capacitor/android": "^8.1.0",
