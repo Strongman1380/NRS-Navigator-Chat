@@ -12,7 +12,10 @@ export default function AdminConversationView({ conversationId, onBack }: AdminC
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isVisitorTyping, setIsVisitorTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const visitorTypingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetchConversation();
@@ -21,9 +24,27 @@ export default function AdminConversationView({ conversationId, onBack }: AdminC
     markMessagesAsRead();
     const pollInterval = setInterval(pollForNewMessages, 3000);
 
+    // Set up typing indicator channel
+    const typingChannel = supabase.channel(`typing:${conversationId}`);
+    typingChannel
+      .on('broadcast', { event: 'typing' }, (payload) => {
+        if (payload.payload?.sender === 'visitor') {
+          setIsVisitorTyping(true);
+          if (visitorTypingTimeoutRef.current) clearTimeout(visitorTypingTimeoutRef.current);
+          visitorTypingTimeoutRef.current = setTimeout(() => setIsVisitorTyping(false), 3000);
+        }
+      })
+      .subscribe();
+    typingChannelRef.current = typingChannel;
+
     return () => {
       cleanupSub();
       clearInterval(pollInterval);
+      if (typingChannelRef.current) {
+        supabase.removeChannel(typingChannelRef.current);
+        typingChannelRef.current = null;
+      }
+      if (visitorTypingTimeoutRef.current) clearTimeout(visitorTypingTimeoutRef.current);
     };
   }, [conversationId]);
 
@@ -125,6 +146,16 @@ export default function AdminConversationView({ conversationId, onBack }: AdminC
     };
   };
 
+  const broadcastAdminTyping = () => {
+    if (typingChannelRef.current) {
+      typingChannelRef.current.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: { sender: 'admin' },
+      });
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -155,6 +186,7 @@ export default function AdminConversationView({ conversationId, onBack }: AdminC
       .from('conversations')
       .update({
         assigned_to_human: true,
+        needs_human_response: false,
         status: 'escalated',
         updated_at: new Date().toISOString(),
       })
@@ -168,6 +200,7 @@ export default function AdminConversationView({ conversationId, onBack }: AdminC
       .from('conversations')
       .update({
         assigned_to_human: true,
+        needs_human_response: false,
         status: 'escalated',
         updated_at: new Date().toISOString(),
       })
@@ -218,6 +251,16 @@ export default function AdminConversationView({ conversationId, onBack }: AdminC
                 </h1>
                 {conversation && (
                   <div className="flex items-center gap-1.5 sm:gap-3 mt-0.5 text-[10px] sm:text-xs md:text-sm text-slate-600 overflow-x-auto whitespace-nowrap">
+                    {(conversation as any).topic_summary && (
+                      <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                        {(conversation as any).topic_summary}
+                      </span>
+                    )}
+                    {(conversation as any).needs_human_response && (
+                      <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200 animate-pulse">
+                        Requesting human
+                      </span>
+                    )}
                     {conversation.category && <span>{conversation.category}</span>}
                     {conversation.location && <span>• {conversation.location}</span>}
                     {conversation.urgency && <span>• {conversation.urgency}</span>}
@@ -274,10 +317,25 @@ export default function AdminConversationView({ conversationId, onBack }: AdminC
               </div>
             </div>
           ))}
+          {/* Admin sending indicator */}
           {isLoading && (
             <div className="flex justify-end">
               <div className="bg-blue-600 rounded-2xl px-4 py-2.5">
                 <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin text-white" />
+              </div>
+            </div>
+          )}
+
+          {/* Visitor typing indicator */}
+          {isVisitorTyping && (
+            <div className="flex justify-start">
+              <div className="bg-white rounded-2xl px-4 py-3 shadow-sm border border-slate-200">
+                <div className="text-[10px] sm:text-xs font-semibold text-slate-500 mb-1">Visitor is typing</div>
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
               </div>
             </div>
           )}
@@ -292,7 +350,10 @@ export default function AdminConversationView({ conversationId, onBack }: AdminC
             <input
               type="text"
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={(e) => {
+                setInputValue(e.target.value);
+                broadcastAdminTyping();
+              }}
               placeholder="Type your message..."
               disabled={isLoading}
               className="flex-1 px-3 sm:px-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-slate-100 disabled:cursor-not-allowed"

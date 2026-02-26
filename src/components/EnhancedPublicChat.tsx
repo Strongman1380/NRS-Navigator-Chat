@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Loader2, Phone, AlertCircle, MapPin, Home, User, ShieldCheck, Info } from 'lucide-react';
+import { Send, Loader2, Phone, AlertCircle, MapPin, User, ShieldCheck, Info, Search, BookmarkPlus, MessageCircle, Bookmark, LogOut } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { generateAIResponse } from '../lib/aiResponses';
+import { generateAIResponse, generateTopicSummary } from '../lib/aiResponses';
+import ResourceBrowser from './ResourceBrowser';
+import SavedConversations from './SavedConversations';
 
 interface Message {
   id: string;
@@ -24,29 +26,56 @@ interface Resource {
   city?: string;
 }
 
+interface ResourceSuggestion {
+  title: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  website?: string;
+  source: 'local' | 'web';
+}
+
+type ActiveTab = 'chat' | 'resources' | 'saved';
+
+const HUMAN_REQUEST_PATTERNS = [
+  'human',
+  'real person',
+  'talk to someone',
+  'talk to a person',
+  'speak with someone',
+  'speak to someone',
+  'live agent',
+  'real help',
+  'connect me to',
+];
+
 export default function EnhancedPublicChat() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const isGuest = !user?.email; // anonymous users have no email
   const stripeDonationUrl = import.meta.env.VITE_STRIPE_DONATION_URL as string | undefined;
-  const [hasConsented, setHasConsented] = useState(() => {
-    return sessionStorage.getItem('nrs_consent_acknowledged') === 'true';
-  });
+  const [hasConsented, setHasConsented] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [suggestedResources, setSuggestedResources] = useState<Resource[]>([]);
+  const [suggestedResources] = useState<Resource[]>([]);
   const [isHumanConnected, setIsHumanConnected] = useState(false);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('chat');
+  const [conversationSaved, setConversationSaved] = useState(false);
+  const [savingConversation, setSavingConversation] = useState(false);
+  const [isAdminTyping, setIsAdminTyping] = useState(false);
+  const [humanEscalationSent, setHumanEscalationSent] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const escalationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleConsent = () => {
-    sessionStorage.setItem('nrs_consent_acknowledged', 'true');
+  const handleConsent = async () => {
+    const consentAcceptedAt = new Date().toISOString();
+    await initializeChat(consentAcceptedAt);
     setHasConsented(true);
   };
-
-  useEffect(() => {
-    if (hasConsented) initializeChat();
-  }, [hasConsented]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -55,10 +84,30 @@ export default function EnhancedPublicChat() {
     const cleanupConversation = subscribeToConversation();
     const pollInterval = setInterval(pollForNewMessages, 3000);
 
+    // Set up typing indicator channel
+    const typingChannel = supabase.channel(`typing:${conversationId}`);
+    typingChannel
+      .on('broadcast', { event: 'typing' }, (payload) => {
+        if (payload.payload?.sender === 'admin') {
+          setIsAdminTyping(true);
+          // Clear after 3s of no typing events
+          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+          typingTimeoutRef.current = setTimeout(() => setIsAdminTyping(false), 3000);
+        }
+      })
+      .subscribe();
+    typingChannelRef.current = typingChannel;
+
     return () => {
       cleanupMessages();
       cleanupConversation();
       clearInterval(pollInterval);
+      if (typingChannelRef.current) {
+        supabase.removeChannel(typingChannelRef.current);
+        typingChannelRef.current = null;
+      }
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      if (escalationTimerRef.current) clearTimeout(escalationTimerRef.current);
     };
   }, [conversationId]);
 
@@ -70,7 +119,7 @@ export default function EnhancedPublicChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const initializeChat = async () => {
+  const initializeChat = async (consentAcceptedAt: string) => {
     if (!user) return;
 
     const { data, error } = await supabase
@@ -79,6 +128,10 @@ export default function EnhancedPublicChat() {
         status: 'active',
         assigned_to_human: false,
         priority: 'medium',
+        terms_accepted: true,
+        terms_accepted_at: consentAcceptedAt,
+        terms_version: '2026-02-26',
+        risks_acknowledged: true,
       })
       .select()
       .single();
@@ -94,6 +147,16 @@ export default function EnhancedPublicChat() {
       event_type: 'conversation_started',
       conversation_id: data.id,
       metadata: { timestamp: new Date().toISOString() },
+    });
+
+    await supabase.from('analytics_events').insert({
+      event_type: 'terms_accepted',
+      conversation_id: data.id,
+      metadata: {
+        timestamp: consentAcceptedAt,
+        termsVersion: '2026-02-26',
+        risksAcknowledged: true,
+      },
     });
 
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -196,6 +259,60 @@ export default function EnhancedPublicChat() {
     };
   };
 
+  const broadcastTyping = () => {
+    if (typingChannelRef.current) {
+      typingChannelRef.current.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: { sender: 'visitor' },
+      });
+    }
+  };
+
+  const startEscalationTimer = () => {
+    // Don't start if human already connected or escalation already sent
+    if (isHumanConnected || humanEscalationSent) return;
+
+    // Clear existing timer
+    if (escalationTimerRef.current) clearTimeout(escalationTimerRef.current);
+
+    escalationTimerRef.current = setTimeout(async () => {
+      // Double-check: has a human responded in the meantime?
+      const { data: convo } = await supabase
+        .from('conversations')
+        .select('assigned_to_human')
+        .eq('id', conversationId)
+        .single();
+
+      if (convo?.assigned_to_human) return;
+
+      // Send "reaching out to a human" message
+      const escalationMsg: Message = {
+        id: 'escalation-' + Date.now(),
+        conversation_id: conversationId!,
+        sender_type: 'ai',
+        content: "We're reaching out to a human support specialist right now. Please hold tight — someone will be with you shortly. In the meantime, feel free to continue sharing what you need help with.",
+        is_read: false,
+        created_at: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, escalationMsg]);
+      setHumanEscalationSent(true);
+
+      // Persist the message
+      await supabase.from('messages').insert({
+        conversation_id: conversationId,
+        sender_type: 'ai',
+        content: escalationMsg.content,
+      });
+
+      // Flag the conversation so admin sees it
+      await supabase.from('conversations').update({
+        needs_human_response: true,
+        updated_at: new Date().toISOString(),
+      }).eq('id', conversationId);
+    }, 60_000); // 1 minute
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -204,6 +321,8 @@ export default function EnhancedPublicChat() {
     const messageContent = inputValue.trim();
     setInputValue('');
     setIsLoading(true);
+
+    const isFirstVisitorMessage = !messages.some(m => m.sender_type === 'visitor');
 
     const visitorMessage: Message = {
       id: 'temp-' + Date.now(),
@@ -222,6 +341,15 @@ export default function EnhancedPublicChat() {
       content: messageContent,
     });
 
+    // Set predictive topic summary on first message
+    if (isFirstVisitorMessage) {
+      const topicSummary = generateTopicSummary(messageContent);
+      await supabase.from('conversations').update({
+        topic_summary: topicSummary,
+        updated_at: new Date().toISOString(),
+      }).eq('id', conversationId);
+    }
+
     await supabase.from('analytics_events').insert({
       event_type: 'message_sent',
       conversation_id: conversationId,
@@ -230,6 +358,78 @@ export default function EnhancedPublicChat() {
 
     await generateSmartAIResponse(messageContent);
     setIsLoading(false);
+
+    // Start (or restart) the 1-minute escalation timer
+    startEscalationTimer();
+  };
+
+  const inferNeedFromText = (text: string): 'food' | 'shelter' | 'treatment' | 'medical' | 'legal' | 'other' | null => {
+    const lower = text.toLowerCase();
+
+    if (/\b(food|foodbox|food box|hungry|meal|eat|pantry|food bank|food source|food sources|emergency food|groceries|soup kitchen|snap|ebt)\b/.test(lower)) return 'food';
+    if (/\b(shelter|housing|homeless|unhoused|place to stay|evicted|sleeping outside|living in car|rent help|utility help)\b/.test(lower)) return 'shelter';
+    if (/\b(treatment|rehab|detox|addiction|recovery|sober|withdrawal|suboxone|aa|na|mat)\b/.test(lower)) return 'treatment';
+    if (/\b(medical|doctor|clinic|health|medicine|prescription|hospital|dental|mental health)\b/.test(lower)) return 'medical';
+    if (/\b(legal|lawyer|attorney|court|eviction notice|warrant|legal aid)\b/.test(lower)) return 'legal';
+    return null;
+  };
+
+  const isHumanRequest = (text: string): boolean => {
+    const lower = text.toLowerCase();
+    return HUMAN_REQUEST_PATTERNS.some((pattern) => lower.includes(pattern));
+  };
+
+  const extractCityFromText = (text: string): string | null => {
+    const cityPattern =
+      /\b(omaha|lincoln|bellevue|grand island|kearney|hastings|north platte|fremont|norfolk|columbus|papillion|la vista|ralston|gretna|scottsbluff|south sioux city|beatrice|lexington|york|seward|plattsmouth|nebraska city|wayne|chadron|sidney|alliance|mccook|broken bow|valentine|ogallala|holdrege|central city)\b/i;
+    const match = text.match(cityPattern);
+    if (!match?.[1]) return null;
+
+    return match[1]
+      .split(' ')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  const fetchResourceSuggestions = async (
+    need: 'food' | 'shelter' | 'treatment' | 'medical' | 'legal' | 'other',
+    city: string | null,
+    queryText: string,
+  ): Promise<ResourceSuggestion[]> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('resource-search', {
+        body: { need, city, queryText, limit: 5 },
+      });
+
+      if (error) {
+        console.error('Resource search function error:', error);
+        return [];
+      }
+
+      const functionSuggestions = (data?.suggestions || []) as Array<{
+        title?: string;
+        phone?: string;
+        address?: string;
+        city?: string;
+        website?: string;
+        source?: 'local' | 'web';
+      }>;
+
+      return functionSuggestions
+        .filter((s) => !!s.title)
+        .slice(0, 5)
+        .map((s) => ({
+          title: s.title!,
+          phone: s.phone,
+          address: s.address,
+          city: s.city,
+          website: s.website,
+          source: s.source || 'local',
+        }));
+    } catch (error) {
+      console.error('Resource search invocation failed:', error);
+      return [];
+    }
   };
 
   const generateSmartAIResponse = async (userMessage: string) => {
@@ -248,9 +448,48 @@ export default function EnhancedPublicChat() {
       return;
     }
 
-    // Build context from conversation history
+    // Deterministic human handoff trigger.
+    if (isHumanRequest(userMessage)) {
+      const escalationMessage = "I understand you'd like to speak with a human. I’m connecting you with our support team now.";
+
+      const { data: aiMsg } = await supabase.from('messages').insert({
+        conversation_id: conversationId,
+        sender_type: 'ai',
+        content: escalationMessage,
+      }).select().single();
+
+      if (aiMsg) {
+        addMessageIfNew(aiMsg);
+      } else {
+        setMessages((prev) => [...prev, {
+          id: 'ai-human-' + Date.now(),
+          conversation_id: conversationId!,
+          sender_type: 'ai' as const,
+          content: escalationMessage,
+          is_read: false,
+          created_at: new Date().toISOString(),
+        }]);
+      }
+
+      await supabase.from('conversations').update({
+        needs_human_response: true,
+        status: 'needs_handoff',
+        priority: 'high',
+        updated_at: new Date().toISOString(),
+      }).eq('id', conversationId);
+
+      await supabase.from('analytics_events').insert({
+        event_type: 'human_requested',
+        conversation_id: conversationId,
+        metadata: { timestamp: new Date().toISOString(), source: 'chat_request' },
+      });
+      return;
+    }
+
+    // Build context from visitor messages only so generic AI text
+    // does not bias fallback topic selection (e.g., to "legal").
     const previousTopics = messages
-      .filter(m => m.sender_type === 'ai' && m.content)
+      .filter(m => m.sender_type === 'visitor' && m.content)
       .flatMap(m => {
         const topics: string[] = [];
         const lower = m.content.toLowerCase();
@@ -264,16 +503,52 @@ export default function EnhancedPublicChat() {
       });
 
     const visitorMessages = messages.filter(m => m.sender_type === 'visitor');
-    const aiResult = generateAIResponse(userMessage, {
-      messageCount: visitorMessages.length,
-      previousTopics: [...new Set(previousTopics)],
-    });
+    const visitorContext = `${visitorMessages.slice(-4).map(m => m.content).join(' ')} ${userMessage}`;
+    const detectedNeed = inferNeedFromText(visitorContext);
+    const detectedCity = extractCityFromText(visitorContext);
+
+    let aiMessage = '';
+    let aiPriority: 'low' | 'medium' | 'high' | 'urgent' | undefined = 'medium';
+    let aiTags: string[] | undefined;
+
+    if (detectedNeed) {
+      const suggestions = await fetchResourceSuggestions(detectedNeed, detectedCity, userMessage);
+
+      if (suggestions.length > 0) {
+        const intro = detectedCity
+          ? `I found ${detectedNeed} resources in or near ${detectedCity}:`
+          : `I found ${detectedNeed} resources that may help:`;
+        const lines = suggestions.map((s, index) => {
+          const locationPart = s.address || s.city ? ` — ${s.address || s.city}` : '';
+          const phonePart = s.phone ? ` | ${s.phone}` : '';
+          const websitePart = s.website ? ` | ${s.website}` : '';
+          return `${index + 1}. ${s.title}${locationPart}${phonePart}${websitePart}`;
+        });
+        const webNote = suggestions.some((s) => s.source === 'web')
+          ? '\n\nI pulled some options from public web listings. Please call ahead to verify hours and availability.'
+          : '';
+
+        aiMessage = `${intro}\n\n${lines.join('\n')}${webNote}\n\nIf you want, I can keep searching for more options or narrow by walkable distance.`;
+        aiPriority = detectedNeed === 'food' || detectedNeed === 'shelter' || detectedNeed === 'treatment' ? 'high' : 'medium';
+        aiTags = [detectedNeed.charAt(0).toUpperCase() + detectedNeed.slice(1)];
+      }
+    }
+
+    if (!aiMessage) {
+      const aiResult = generateAIResponse(userMessage, {
+        messageCount: visitorMessages.length,
+        previousTopics: [...new Set(previousTopics)],
+      });
+      aiMessage = aiResult.message;
+      aiPriority = aiResult.priority;
+      aiTags = aiResult.tags;
+    }
 
     // Insert the AI response into Supabase so both user and admin see it
     const { data: aiMsg } = await supabase.from('messages').insert({
       conversation_id: conversationId,
       sender_type: 'ai',
-      content: aiResult.message,
+      content: aiMessage,
     }).select().single();
 
     // Add to local state directly — don't rely on realtime subscription
@@ -285,14 +560,14 @@ export default function EnhancedPublicChat() {
         id: 'ai-' + Date.now(),
         conversation_id: conversationId!,
         sender_type: 'ai' as const,
-        content: aiResult.message,
+        content: aiMessage,
         is_read: false,
         created_at: new Date().toISOString(),
       }]);
     }
 
     // Update conversation metadata based on AI analysis
-    if (aiResult.priority === 'urgent') {
+    if (aiPriority === 'urgent') {
       await supabase.from('conversations').update({
         priority: 'urgent',
         urgency: 'urgent',
@@ -302,12 +577,12 @@ export default function EnhancedPublicChat() {
       await supabase.from('analytics_events').insert({
         event_type: 'crisis_detected',
         conversation_id: conversationId,
-        metadata: { timestamp: new Date().toISOString(), tags: aiResult.tags },
+        metadata: { timestamp: new Date().toISOString(), tags: aiTags },
       });
-    } else if (aiResult.priority && aiResult.priority !== 'low') {
+    } else if (aiPriority && aiPriority !== 'low') {
       await supabase.from('conversations').update({
-        priority: aiResult.priority,
-        category: aiResult.tags?.[0] || null,
+        priority: aiPriority,
+        category: aiTags?.[0] || null,
         updated_at: new Date().toISOString(),
       }).eq('id', conversationId);
     }
@@ -319,6 +594,28 @@ export default function EnhancedPublicChat() {
 
   const handleEmergencyCall = () => {
     window.location.href = 'tel:911';
+  };
+
+  const handleSaveConversation = async () => {
+    if (!user || !conversationId || isGuest || savingConversation) return;
+    setSavingConversation(true);
+
+    // Auto-generate a title from the first visitor message
+    const firstVisitor = messages.find(m => m.sender_type === 'visitor');
+    const title = firstVisitor
+      ? firstVisitor.content.slice(0, 60) + (firstVisitor.content.length > 60 ? '...' : '')
+      : `Conversation — ${new Date().toLocaleDateString()}`;
+
+    const { error } = await supabase.from('saved_conversations').insert({
+      user_id: user.id,
+      conversation_id: conversationId,
+      title,
+    });
+
+    if (!error) {
+      setConversationSaved(true);
+    }
+    setSavingConversation(false);
   };
 
   // ─── Consent / Disclaimer Screen ──────────────────────────────
@@ -488,7 +785,7 @@ export default function EnhancedPublicChat() {
       {/* Header - safe area top for notched iPhones */}
       <div className="bg-white border-b border-slate-200 shadow-sm safe-top">
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-4 safe-x">
-          {stripeDonationUrl && (
+          {stripeDonationUrl && activeTab === 'chat' && (
             <div className="mb-2 sm:mb-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[11px] sm:text-xs text-slate-700">
@@ -510,7 +807,7 @@ export default function EnhancedPublicChat() {
             <div className="min-w-0 flex-1">
               <h1 className="text-base sm:text-lg md:text-xl font-bold text-slate-900 truncate">NRS Navigator</h1>
               <p className="text-[11px] sm:text-xs md:text-sm text-slate-600 mt-0.5">
-                {isHumanConnected ? (
+                {isHumanConnected && activeTab === 'chat' ? (
                   <span className="flex items-center gap-1 text-green-600 font-medium">
                     <User className="w-3 h-3 flex-shrink-0" />
                     Connected to support specialist
@@ -521,6 +818,28 @@ export default function EnhancedPublicChat() {
               </p>
             </div>
             <div className="flex gap-1.5 sm:gap-2 flex-shrink-0 ml-2">
+              {/* Save conversation button (only for authenticated, non-guest users in chat tab) */}
+              {!isGuest && activeTab === 'chat' && conversationId && messages.length > 1 && (
+                <button
+                  onClick={handleSaveConversation}
+                  disabled={conversationSaved || savingConversation}
+                  className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm font-medium ${
+                    conversationSaved
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 active:bg-slate-300'
+                  }`}
+                  title={conversationSaved ? 'Conversation saved' : 'Save this conversation'}
+                >
+                  {conversationSaved ? (
+                    <Bookmark className="w-3.5 h-3.5 fill-current" />
+                  ) : savingConversation ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <BookmarkPlus className="w-3.5 h-3.5" />
+                  )}
+                  <span className="hidden sm:inline">{conversationSaved ? 'Saved' : 'Save'}</span>
+                </button>
+              )}
               <button
                 onClick={handleCrisisCall}
                 className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 active:bg-red-800 transition-colors text-xs sm:text-sm font-medium"
@@ -537,99 +856,190 @@ export default function EnhancedPublicChat() {
               </button>
             </div>
           </div>
+
+          {/* Tab navigation */}
+          <div className="flex mt-2.5 -mb-[calc(0.625rem+1px)] sm:-mb-[calc(0.75rem+1px)] md:-mb-[calc(1rem+1px)] gap-1">
+            <button
+              onClick={() => setActiveTab('chat')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-xs sm:text-sm font-medium border border-b-0 transition-colors ${
+                activeTab === 'chat'
+                  ? 'bg-slate-50 text-blue-600 border-slate-200'
+                  : 'bg-white text-slate-500 border-transparent hover:text-slate-700'
+              }`}
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              Chat
+            </button>
+            <button
+              onClick={() => setActiveTab('resources')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-xs sm:text-sm font-medium border border-b-0 transition-colors ${
+                activeTab === 'resources'
+                  ? 'bg-slate-50 text-blue-600 border-slate-200'
+                  : 'bg-white text-slate-500 border-transparent hover:text-slate-700'
+              }`}
+            >
+              <Search className="w-3.5 h-3.5" />
+              Resources
+            </button>
+            {!isGuest && (
+              <button
+                onClick={() => setActiveTab('saved')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-xs sm:text-sm font-medium border border-b-0 transition-colors ${
+                  activeTab === 'saved'
+                    ? 'bg-slate-50 text-blue-600 border-slate-200'
+                    : 'bg-white text-slate-500 border-transparent hover:text-slate-700'
+                }`}
+              >
+                <Bookmark className="w-3.5 h-3.5" />
+                Saved
+              </button>
+            )}
+            {/* Sign out - far right */}
+            <div className="flex-1" />
+            <button
+              onClick={signOut}
+              className="flex items-center gap-1 px-2 py-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+              title="Sign out"
+            >
+              <LogOut className="w-3 h-3" />
+              <span className="hidden sm:inline">Sign out</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Messages area */}
-      <div className="flex-1 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
-        <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6 space-y-3 safe-x">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.sender_type === 'visitor' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-[80%] sm:max-w-[75%] md:max-w-2xl rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 ${
-                  message.sender_type === 'visitor'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-slate-900 shadow-sm border border-slate-200'
-                }`}
-              >
-                {message.sender_type !== 'visitor' && (
-                  <div className="text-[10px] sm:text-xs font-semibold text-slate-500 mb-0.5">
-                    {message.sender_type === 'admin' ? 'Brandon' : 'NRS Navigator'}
-                  </div>
-                )}
-                <p className="text-[13px] sm:text-sm md:text-[15px] leading-relaxed whitespace-pre-line">{message.content}</p>
-              </div>
-            </div>
-          ))}
+      {/* Resources tab */}
+      {activeTab === 'resources' && (
+        <div className="flex-1 overflow-hidden">
+          <ResourceBrowser />
+        </div>
+      )}
 
-          {suggestedResources.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 sm:p-4 space-y-2 sm:space-y-3">
-              <h3 className="font-semibold text-slate-900 flex items-center gap-2 text-sm sm:text-base">
-                <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0" />
-                Suggested Resources
-              </h3>
-              {suggestedResources.map((resource) => (
-                <div key={resource.id} className="border-t border-slate-200 pt-2 sm:pt-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-slate-900 text-sm">{resource.name}</h4>
-                      {resource.address && (
-                        <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                          {resource.address}, {resource.city}
-                        </p>
-                      )}
-                    </div>
-                    {resource.phone && (
-                      <a
-                        href={`tel:${resource.phone}`}
-                        className="ml-2 px-2.5 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors text-xs sm:text-sm font-medium flex items-center gap-1 flex-shrink-0"
-                      >
-                        <Phone className="w-3.5 h-3.5" />
-                        Call
-                      </a>
+      {/* Saved conversations tab */}
+      {activeTab === 'saved' && !isGuest && (
+        <div className="flex-1 overflow-hidden">
+          <SavedConversations />
+        </div>
+      )}
+
+      {/* Chat tab */}
+      {activeTab === 'chat' && (
+        <>
+          {/* Messages area */}
+          <div className="flex-1 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6 space-y-3 safe-x">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.sender_type === 'visitor' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[80%] sm:max-w-[75%] md:max-w-2xl rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 ${
+                      message.sender_type === 'visitor'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-slate-900 shadow-sm border border-slate-200'
+                    }`}
+                  >
+                    {message.sender_type !== 'visitor' && (
+                      <div className="text-[10px] sm:text-xs font-semibold text-slate-500 mb-0.5">
+                        {message.sender_type === 'admin' ? 'Brandon' : 'NRS Navigator'}
+                      </div>
                     )}
+                    <p className="text-[13px] sm:text-sm md:text-[15px] leading-relaxed whitespace-pre-line">{message.content}</p>
                   </div>
                 </div>
               ))}
-            </div>
-          )}
 
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-white rounded-2xl px-4 py-2.5 shadow-sm border border-slate-200">
-                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin text-slate-400" />
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-      </div>
+              {suggestedResources.length > 0 && (
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 sm:p-4 space-y-2 sm:space-y-3">
+                  <h3 className="font-semibold text-slate-900 flex items-center gap-2 text-sm sm:text-base">
+                    <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0" />
+                    Suggested Resources
+                  </h3>
+                  {suggestedResources.map((resource) => (
+                    <div key={resource.id} className="border-t border-slate-200 pt-2 sm:pt-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-slate-900 text-sm">{resource.name}</h4>
+                          {resource.address && (
+                            <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+                              {resource.address}, {resource.city}
+                            </p>
+                          )}
+                        </div>
+                        {resource.phone && (
+                          <a
+                            href={`tel:${resource.phone}`}
+                            className="ml-2 px-2.5 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors text-xs sm:text-sm font-medium flex items-center gap-1 flex-shrink-0"
+                          >
+                            <Phone className="w-3.5 h-3.5" />
+                            Call
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-      {/* Input area - safe area bottom for home indicator */}
-      <div className="bg-white border-t border-slate-200 shadow-lg safe-bottom">
-        <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-3 safe-x">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Type your message..."
-              disabled={isLoading}
-              className="flex-1 px-3 sm:px-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-slate-100 disabled:cursor-not-allowed"
-            />
-            <button
-              type="submit"
-              disabled={!inputValue.trim() || isLoading}
-              className="px-3.5 sm:px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center"
-            >
-              <Send className="h-4 w-4 sm:h-5 sm:w-5" />
-            </button>
+              {/* AI typing indicator */}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-white rounded-2xl px-4 py-3 shadow-sm border border-slate-200">
+                    <div className="text-[10px] sm:text-xs font-semibold text-slate-500 mb-1">NRS Navigator</div>
+                    <div className="flex items-center gap-1">
+                      <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Admin typing indicator */}
+              {isAdminTyping && !isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-white rounded-2xl px-4 py-3 shadow-sm border border-slate-200">
+                    <div className="text-[10px] sm:text-xs font-semibold text-slate-500 mb-1">Brandon</div>
+                    <div className="flex items-center gap-1">
+                      <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
           </div>
-        </form>
-      </div>
+
+          {/* Input area - safe area bottom for home indicator */}
+          <div className="bg-white border-t border-slate-200 shadow-lg safe-bottom">
+            <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-3 safe-x">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => {
+                    setInputValue(e.target.value);
+                    broadcastTyping();
+                  }}
+                  placeholder="Type your message..."
+                  disabled={isLoading}
+                  className="flex-1 px-3 sm:px-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-slate-100 disabled:cursor-not-allowed"
+                />
+                <button
+                  type="submit"
+                  disabled={!inputValue.trim() || isLoading}
+                  className="px-3.5 sm:px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center"
+                >
+                  <Send className="h-4 w-4 sm:h-5 sm:w-5" />
+                </button>
+              </div>
+            </form>
+          </div>
+        </>
+      )}
     </div>
   );
 }
