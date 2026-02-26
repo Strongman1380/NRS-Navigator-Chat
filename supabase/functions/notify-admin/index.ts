@@ -1,0 +1,180 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+
+/**
+ * notify-admin Edge Function
+ *
+ * Sends email (Resend) and/or SMS (Twilio) to the admin when a
+ * conversation is escalated or a user requests human assistance.
+ *
+ * Required secrets (set via `supabase secrets set`):
+ *   ADMIN_EMAIL          - Email to receive alerts
+ *   ADMIN_PHONE          - Phone number for SMS (e.g. +14025551234)
+ *   RESEND_API_KEY       - API key from resend.com
+ *   TWILIO_ACCOUNT_SID   - Twilio Account SID
+ *   TWILIO_AUTH_TOKEN    - Twilio Auth Token
+ *   TWILIO_FROM_NUMBER   - Twilio phone number to send from
+ */
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
+interface NotifyRequest {
+  conversationId: string;
+  reason: string; // e.g. "human_requested", "crisis_detected", "urgent_escalation"
+  preview?: string; // First message or summary
+  priority?: string;
+  visitorName?: string;
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 200, headers: corsHeaders });
+  }
+
+  try {
+    const { conversationId, reason, preview, priority, visitorName }: NotifyRequest =
+      await req.json();
+
+    const adminEmail = Deno.env.get("ADMIN_EMAIL");
+    const adminPhone = Deno.env.get("ADMIN_PHONE");
+    const resendKey = Deno.env.get("RESEND_API_KEY");
+    const twilioSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+    const twilioToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+    const twilioFrom = Deno.env.get("TWILIO_FROM_NUMBER");
+
+    const shortId = conversationId.slice(0, 8);
+    const timestamp = new Date().toLocaleString("en-US", {
+      timeZone: "America/Chicago",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+
+    // Build the alert message
+    let reasonLabel = "Needs Attention";
+    if (reason === "human_requested") reasonLabel = "Human Assistance Requested";
+    else if (reason === "crisis_detected") reasonLabel = "CRISIS DETECTED";
+    else if (reason === "urgent_escalation") reasonLabel = "Urgent Escalation";
+
+    const smsBody = [
+      `NRS Alert: ${reasonLabel}`,
+      `Conv #${shortId}${visitorName ? ` (${visitorName})` : ""}`,
+      priority ? `Priority: ${priority.toUpperCase()}` : "",
+      preview ? `"${preview.slice(0, 100)}${preview.length > 100 ? "..." : ""}"` : "",
+      `Time: ${timestamp} CT`,
+      `Open dashboard to respond.`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const results: { email?: string; sms?: string } = {};
+
+    // ─── Send Email via Resend ─────────────────────────────────
+    if (adminEmail && resendKey) {
+      try {
+        const emailHtml = `
+          <div style="font-family: -apple-system, sans-serif; max-width: 500px;">
+            <div style="background: ${reason === "crisis_detected" ? "#DC2626" : "#2563EB"}; color: white; padding: 16px 20px; border-radius: 12px 12px 0 0;">
+              <h2 style="margin: 0; font-size: 18px;">${reasonLabel}</h2>
+            </div>
+            <div style="background: #F8FAFC; padding: 20px; border: 1px solid #E2E8F0; border-top: none; border-radius: 0 0 12px 12px;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <tr>
+                  <td style="padding: 6px 0; color: #64748B;">Conversation</td>
+                  <td style="padding: 6px 0; font-weight: 600;">#${shortId}</td>
+                </tr>
+                ${visitorName ? `<tr><td style="padding: 6px 0; color: #64748B;">Visitor</td><td style="padding: 6px 0;">${visitorName}</td></tr>` : ""}
+                ${priority ? `<tr><td style="padding: 6px 0; color: #64748B;">Priority</td><td style="padding: 6px 0; font-weight: 600; color: ${priority === "urgent" ? "#DC2626" : "#F59E0B"};">${priority.toUpperCase()}</td></tr>` : ""}
+                <tr>
+                  <td style="padding: 6px 0; color: #64748B;">Time</td>
+                  <td style="padding: 6px 0;">${timestamp} CT</td>
+                </tr>
+              </table>
+              ${preview ? `<div style="margin-top: 12px; padding: 12px; background: white; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 14px; color: #334155;"><strong>Message preview:</strong><br/>"${preview.slice(0, 200)}${preview.length > 200 ? "..." : ""}"</div>` : ""}
+              <p style="margin-top: 16px; font-size: 13px; color: #64748B;">Open your admin dashboard to respond to this conversation.</p>
+            </div>
+          </div>
+        `;
+
+        const emailRes = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${resendKey}`,
+          },
+          body: JSON.stringify({
+            from: "NRS Navigator <onboarding@resend.dev>",
+            to: [adminEmail],
+            subject: `${reason === "crisis_detected" ? "URGENT: " : ""}${reasonLabel} — #${shortId}`,
+            html: emailHtml,
+          }),
+        });
+
+        if (emailRes.ok) {
+          results.email = "sent";
+        } else {
+          const err = await emailRes.text();
+          console.error("Resend error:", err);
+          results.email = `error: ${err}`;
+        }
+      } catch (e) {
+        console.error("Email send failed:", e);
+        results.email = `error: ${e.message}`;
+      }
+    } else {
+      results.email = "skipped (no ADMIN_EMAIL or RESEND_API_KEY)";
+    }
+
+    // ─── Send SMS via Twilio ───────────────────────────────────
+    if (adminPhone && twilioSid && twilioToken && twilioFrom) {
+      try {
+        const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`;
+        const authHeader = btoa(`${twilioSid}:${twilioToken}`);
+
+        const smsRes = await fetch(twilioUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Authorization: `Basic ${authHeader}`,
+          },
+          body: new URLSearchParams({
+            To: adminPhone,
+            From: twilioFrom,
+            Body: smsBody,
+          }),
+        });
+
+        if (smsRes.ok) {
+          results.sms = "sent";
+        } else {
+          const err = await smsRes.text();
+          console.error("Twilio error:", err);
+          results.sms = `error: ${err}`;
+        }
+      } catch (e) {
+        console.error("SMS send failed:", e);
+        results.sms = `error: ${e.message}`;
+      }
+    } else {
+      results.sms = "skipped (missing Twilio credentials)";
+    }
+
+    console.log(`Notification for #${shortId}: email=${results.email}, sms=${results.sms}`);
+
+    return new Response(JSON.stringify({ success: true, results }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error("Notify error:", error);
+    return new Response(
+      JSON.stringify({ error: error.message || "Internal error" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  }
+});

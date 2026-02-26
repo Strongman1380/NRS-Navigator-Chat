@@ -205,14 +205,46 @@ Be warm, non-judgmental, and solution-focused. Always provide specific contact i
       user_id: user.id,
     });
 
-    if (needsHumanEscalation) {
+    // Detect crisis keywords in the user's message
+    const userMsg = messages[messages.length - 1].content.toLowerCase();
+    const isCrisis = /\b(suicid|kill myself|hurt myself|end it|want to die|self.?harm)\b/i.test(userMsg);
+
+    if (needsHumanEscalation || isCrisis) {
       await supabaseClient
         .from("conversations")
         .update({
           status: "escalated",
           needs_human_response: true,
+          ...(isCrisis ? { priority: "urgent" } : {}),
         })
         .eq("id", conversationId);
+
+      // Get the first user message as preview
+      const firstUserMsg = messages.filter((m) => m.role === "user")[0]?.content || userMsg;
+
+      // Fetch visitor name if available
+      const { data: convoData } = await supabaseClient
+        .from("conversations")
+        .select("visitor_name, priority")
+        .eq("id", conversationId)
+        .single();
+
+      // Fire notification to admin (email + SMS) — don't await to avoid blocking response
+      const notifyUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/notify-admin`;
+      fetch(notifyUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        },
+        body: JSON.stringify({
+          conversationId,
+          reason: isCrisis ? "crisis_detected" : "human_requested",
+          preview: firstUserMsg.slice(0, 200),
+          priority: isCrisis ? "urgent" : convoData?.priority || "high",
+          visitorName: convoData?.visitor_name || null,
+        }),
+      }).catch((e) => console.error("Notify-admin call failed:", e));
     }
 
     return new Response(

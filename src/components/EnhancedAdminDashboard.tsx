@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  BarChart3, MessageSquare, Users, Clock, AlertCircle, TrendingUp,
-  Filter, Tag, Calendar, LogOut, Settings, Database, RefreshCw
+  MessageSquare, Users, AlertCircle, TrendingUp, LogOut, Database, RefreshCw
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,6 +19,7 @@ interface Conversation {
   category?: string;
   visitor_name?: string;
   location?: string;
+  topic_summary?: string;
 }
 
 interface AnalyticsData {
@@ -53,7 +53,7 @@ export default function EnhancedAdminDashboard() {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   // Notification state
-  const { permission, requestPermission, notify, playAlertSound } = useBrowserNotifications();
+  const { requestPermission, notify, playAlertSound } = useBrowserNotifications();
   const notifiedConversationsRef = useRef<Set<string>>(new Set());
   const notifiedUrgentRef = useRef<Set<string>>(new Set());
 
@@ -146,7 +146,7 @@ export default function EnhancedAdminDashboard() {
       .from('messages')
       .select('conversation_id, content')
       .in('conversation_id', ids)
-      .eq('role', 'user')
+      .eq('sender_type', 'visitor')
       .order('created_at', { ascending: true });
 
     if (error || !messages) return;
@@ -167,11 +167,6 @@ export default function EnhancedAdminDashboard() {
 
     const { data: convos } = await supabase
       .from('conversations')
-      .select('*')
-      .gte('created_at', today.toISOString());
-
-    const { data: events } = await supabase
-      .from('analytics_events')
       .select('*')
       .gte('created_at', today.toISOString());
 
@@ -364,8 +359,11 @@ export default function EnhancedAdminDashboard() {
                     >
                       <span className="font-medium">#{convo.id.slice(0, 8)}</span>
                       {convo.visitor_name && <span className="ml-1.5">— {convo.visitor_name}</span>}
+                      {convo.topic_summary && (
+                        <span className="ml-1.5 px-1 py-0.5 bg-white/20 rounded text-[10px] font-medium">{convo.topic_summary}</span>
+                      )}
                       {convo.needs_human_response && (
-                        <span className="ml-1.5 px-1 py-0.5 bg-white/20 rounded text-[10px] font-medium">NEEDS HUMAN</span>
+                        <span className="ml-1.5 px-1 py-0.5 bg-white/30 rounded text-[10px] font-medium">REQUESTING HUMAN</span>
                       )}
                       {messagePreviews[convo.id] && (
                         <span className="ml-1.5 opacity-80 truncate">
@@ -509,7 +507,7 @@ export default function EnhancedAdminDashboard() {
                         </span>
                         {conversation.needs_human_response && (
                           <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium bg-red-100 text-red-800 border border-red-300 animate-pulse">
-                            HUMAN
+                            REQUESTING HUMAN
                           </span>
                         )}
                         {conversation.category && (
@@ -518,6 +516,14 @@ export default function EnhancedAdminDashboard() {
                           </span>
                         )}
                       </div>
+                      {/* Topic summary label */}
+                      {conversation.topic_summary && (
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                            {conversation.topic_summary}
+                          </span>
+                        </div>
+                      )}
                       {/* Message preview */}
                       {messagePreviews[conversation.id] && (
                         <p className="mt-1 text-[11px] sm:text-xs text-slate-500 line-clamp-2">
