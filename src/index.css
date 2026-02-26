@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Safe area insets for notched devices (iPhone X+, iPads with home indicator) */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+/* Prevent text size inflation on mobile */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Mobile-first base font sizing */
+body {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+}
+
+/* Fix iOS input zoom (happens when font-size < 16px) */
+input, select, textarea {
+  font-size: 16px !important;
+}
+
+/* Safe area utility classes */
+.safe-top { padding-top: var(--sat); }
+.safe-bottom { padding-bottom: var(--sab); }
+.safe-left { padding-left: var(--sal); }
+.safe-right { padding-right: var(--sar); }
+.safe-x { padding-left: var(--sal); padding-right: var(--sar); }
+.safe-y { padding-top: var(--sat); padding-bottom: var(--sab); }
+.safe-all { padding: var(--sat) var(--sar) var(--sab) var(--sal); }
+
+/* Mobile viewport height fix (accounts for browser chrome) */
+.h-screen-safe {
+  height: 100dvh;
+}
+
+/* Smooth scrolling for chat */
+.scroll-smooth {
+  -webkit-overflow-scrolling: touch;
+}

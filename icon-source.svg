@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#1e3a5f"/>
+  <g transform="translate(256,256)">
+    <!-- Compass/navigation circle -->
+    <circle cx="0" cy="0" r="160" fill="none" stroke="#60a5fa" stroke-width="12"/>
+    <!-- Inner glow -->
+    <circle cx="0" cy="0" r="120" fill="none" stroke="#93c5fd" stroke-width="4" opacity="0.5"/>
+    <!-- Navigation arrow pointing up -->
+    <polygon points="0,-100 30,-20 10,-30 10,80 -10,80 -10,-30 -30,-20" fill="#f0f9ff"/>
+    <!-- Small compass dots -->
+    <circle cx="0" cy="-160" r="8" fill="#60a5fa"/>
+    <circle cx="160" cy="0" r="8" fill="#60a5fa"/>
+    <circle cx="0" cy="160" r="8" fill="#60a5fa"/>
+    <circle cx="-160" cy="0" r="8" fill="#60a5fa"/>
+    <!-- NRS text -->
+    <text x="0" y="145" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="bold" font-size="48" fill="#f0f9ff">NRS</text>
+  </g>
+</svg>

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NRS Resource Navigation</string>
+    <string name="title_activity_main">NRS Resource Navigation</string>
+    <string name="package_name">nrs.live.resource.navigator</string>
+    <string name="custom_url_scheme">nrs.live.resource.navigator</string>
+</resources>

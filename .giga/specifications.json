@@ -1,0 +1,18 @@
+[
+  {
+    "fileName": "main-overview.mdc",
+    "description": "Complete system overview documenting the crisis response platform architecture, component relationships, and key safety protocols"
+  },
+  {
+    "fileName": "crisis-assessment-algorithms.mdc",
+    "description": "Detailed documentation of crisis detection patterns, urgency classification algorithms, and automated escalation triggers used in aiResponses.ts"
+  },
+  {
+    "fileName": "resource-allocation-model.mdc",
+    "description": "Comprehensive documentation of resource matching logic, geographic optimization, and capacity management algorithms from ResourceManager.tsx"
+  },
+  {
+    "fileName": "data-flow-protocols.mdc",
+    "description": "Documentation of data flow between components, focusing on conversation routing, AI-to-human handoffs, and real-time crisis queue management"
+  }
+]
