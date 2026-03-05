@@ -1,0 +1,22 @@
+[
+  {
+    "fileName": "main-overview.mdc",
+    "description": "Complete system overview of the travel log service provider system, including high-level architecture and component interactions"
+  },
+  {
+    "fileName": "service-categories-model.mdc",
+    "description": "Detailed documentation of service types, billing codes, and their associated business rules for travel, drug testing, and case management services"
+  },
+  {
+    "fileName": "calculation-algorithms.mdc",
+    "description": "Implementation details of core calculation algorithms for transport hours, billable hours, indirect hours, and mileage costs across different service types"
+  },
+  {
+    "fileName": "data-flow-logic.mdc",
+    "description": "Documentation of how data flows through the system, including entry validation, hierarchical entry system, and processing of main/sub-entries"
+  },
+  {
+    "fileName": "financial-metrics-model.mdc",
+    "description": "Detailed documentation of financial calculations, staff performance tracking, and service hour categorization algorithms"
+  }
+]

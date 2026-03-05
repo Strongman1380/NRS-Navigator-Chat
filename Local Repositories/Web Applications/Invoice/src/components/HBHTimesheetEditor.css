@@ -1,0 +1,310 @@
+.hbh-print-container {
+  font-family: Arial, Helvetica, sans-serif;
+  color: #000;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px;
+  background: white;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.hbh-print-container * {
+  box-sizing: border-box;
+}
+
+/* Header Sections */
+.hbh-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.hbh-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding-top: 10px;
+  flex: 1;
+}
+
+.hbh-header-name,
+.hbh-header-week {
+  display: flex;
+  align-items: flex-end;
+}
+
+.hbh-header-name span.label,
+.hbh-header-week span.label {
+  margin-right: 10px;
+  white-space: nowrap;
+}
+
+.hbh-header-name .hbh-line {
+  flex: 1;
+  border-bottom: 2px solid #000;
+  min-height: 20px;
+  position: relative;
+  max-width: 400px;
+}
+
+.hbh-header-week .hbh-line {
+  width: 200px;
+  border-bottom: 2px solid #000;
+  min-height: 20px;
+  position: relative;
+  text-align: center;
+}
+
+.hbh-week-sublabel {
+  font-size: 11px;
+  margin-top: 2px;
+  margin-left: 95px;
+}
+
+.hbh-header-name input,
+.hbh-header-week input {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 0;
+}
+
+.hbh-header-right {
+  text-align: left;
+  line-height: 1.4;
+  padding-left: 20px;
+  font-size: 15px;
+}
+
+/* Press Down Hard Sidebar */
+.hbh-table-layout {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 20px;
+}
+
+.hbh-press-down {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 20px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  margin-right: 10px;
+  margin-top: 50px;
+}
+
+/* Table Wrapper */
+.hbh-table-wrapper {
+  flex: 1;
+}
+
+/* Main Table */
+.hbh-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 2px solid #000;
+}
+
+.hbh-table th,
+.hbh-table td {
+  border: 1px solid #000;
+  text-align: center;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 0;
+  height: 35px;
+  vertical-align: middle;
+}
+
+.hbh-table td:first-child {
+  text-align: right;
+  padding-right: 8px;
+  font-size: 11px;
+  width: 140px;
+}
+
+/* Thick outer border effect */
+.hbh-table {
+  border-left: none; /* Let the first cell manage left border if needed, or keeping it */
+}
+.hbh-table tr:first-child th {
+  border-top: 2px solid #000;
+}
+.hbh-table tr:last-child td {
+  border-bottom: 2px solid #000;
+}
+
+.hbh-table th {
+  padding: 5px 2px;
+}
+
+.hbh-cell-input-wrapper {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.hbh-cell-input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  text-align: center;
+  font-size: 13px;
+  font-weight: bold;
+  background: transparent;
+  outline: none;
+}
+
+.hbh-cell-split {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.hbh-cell-split > div {
+  flex: 1;
+  border-right: 1px solid #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hbh-cell-split > div:last-child {
+  border-right: none;
+}
+
+.hbh-cell-split input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  text-align: center;
+  background: transparent;
+  outline: none;
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.time-row {
+  height: 60px !important; /* give enough space for 24-hr time picker */
+}
+
+/* Side Info Box area */
+.hbh-side-info {
+  margin-left: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.hbh-checkbox-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.hbh-square-box {
+  width: 50px;
+  height: 35px;
+  border: 1px solid #000;
+  margin-right: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.hbh-square-box input {
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  border: none;
+  outline: none;
+  font-size: 20px;
+}
+
+.hbh-checkbox-label {
+  white-space: nowrap;
+}
+
+.hbh-total-label {
+  margin-bottom: 5px;
+  margin-left: 20px;
+}
+
+.hbh-dash {
+  margin-right: 15px;
+  font-size: 24px;
+}
+
+/* Footer Section */
+.hbh-footer {
+  margin-top: 50px;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 40px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.hbh-sig-box {
+  width: 350px;
+  border-top: 2px solid #000;
+  text-align: center;
+  padding-top: 5px;
+  position: relative;
+}
+
+.hbh-date-box {
+  width: 200px;
+  border-top: 2px solid #000;
+  text-align: center;
+  padding-top: 5px;
+  position: relative;
+}
+
+.hbh-hidden-input {
+  position: absolute;
+  bottom: 25px;
+  left: 0;
+  width: 100%;
+  border: none;
+  text-align: center;
+  font-size: 14px;
+  outline: none;
+  background: transparent;
+}
+
+.print-only {
+  display: none !important;
+}
+
+@media print {
+  @page { margin: 0; }
+  body {
+    -webkit-print-color-adjust: exact;
+    background: white;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .hbh-print-container {
+    padding: 0;
+    max-width: 100%; margin: 2cm;
+  }
+  input, button { border: none !important; background: transparent !important; resize: none; }
+  .hbh-text-input { display: none !important; }
+}

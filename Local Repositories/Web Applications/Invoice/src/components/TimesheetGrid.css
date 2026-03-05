@@ -1,0 +1,198 @@
+.ts-wrapper {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  padding: 24px;
+}
+
+/* Pay period row */
+.ts-pay-period {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.ts-period-input {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 14px;
+  width: 120px;
+}
+
+/* Table scroll container */
+.ts-table-scroll {
+  overflow-x: auto;
+}
+
+/* Table */
+.ts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 900px;
+}
+
+.ts-table thead th {
+  background: #1a1a2e;
+  color: #fff;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid #0f3460;
+}
+
+.ts-table tbody tr {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.ts-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.ts-row-editing {
+  background: #fffbea !important;
+  outline: 2px solid #f59e0b;
+}
+
+.ts-table tbody td {
+  padding: 6px 8px;
+  vertical-align: middle;
+  border: 1px solid #e5e7eb;
+}
+
+/* Empty state */
+.ts-empty {
+  text-align: center;
+  color: #6b7280;
+  padding: 32px !important;
+  font-style: italic;
+}
+
+/* Totals row */
+.ts-totals {
+  background: #f1f5f9;
+  font-weight: 700;
+}
+
+.ts-totals td {
+  padding: 10px 12px;
+  border-top: 2px solid #1a1a2e;
+}
+
+.ts-totals-label {
+  text-align: right;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #374151;
+}
+
+.ts-total-val {
+  font-size: 14px;
+  color: #1a1a2e;
+}
+
+/* Inputs */
+.ts-input {
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  padding: 4px 6px;
+  font-size: 13px;
+  width: 100%;
+  box-sizing: border-box;
+  background: #fff;
+  transition: border-color 0.15s;
+}
+
+.ts-input:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+}
+
+.ts-select {
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  padding: 4px 6px;
+  font-size: 13px;
+  width: 100%;
+  background: #fff;
+}
+
+.ts-select:focus {
+  outline: none;
+  border-color: #4f46e5;
+}
+
+.ts-billing-custom {
+  margin-top: 4px;
+}
+
+/* Column widths */
+.ts-date       { width: 100px; }
+.ts-hours      { width: 60px; text-align: center; }
+.ts-client     { width: 180px; }
+.ts-mileage    { width: 70px; text-align: center; }
+.ts-notes      { width: 100%; }
+
+/* Checkbox */
+.ts-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #4f46e5;
+}
+
+/* Center alignment */
+.ts-center {
+  text-align: center;
+}
+
+/* Delete button */
+.ts-btn-delete {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: background 0.15s;
+}
+
+.ts-btn-delete:hover {
+  background: #fee2e2;
+}
+
+/* Actions column */
+.ts-actions {
+  white-space: nowrap;
+}
+
+/* Footer */
+.ts-footer-actions {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ts-btn-add {
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ts-btn-add:hover {
+  background: #4338ca;
+}
