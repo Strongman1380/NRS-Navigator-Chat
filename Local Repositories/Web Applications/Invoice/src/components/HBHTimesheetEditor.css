@@ -1,310 +1,429 @@
-.hbh-print-container {
+/* ═══════════════════════════════════════════
+   HEARTLAND BOYS HOME TIMECARD — exact match
+═══════════════════════════════════════════ */
+
+/* ── Card container ── */
+.tc {
+  background: #fff;
+  max-width: 1060px;
+  margin: 28px auto;
+  border: 2px solid #000;
+  padding: 20px 24px 16px;
   font-family: Arial, Helvetica, sans-serif;
+  font-size: 12px;
   color: #000;
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 40px;
-  background: white;
-  position: relative;
-  box-sizing: border-box;
 }
 
-.hbh-print-container * {
-  box-sizing: border-box;
-}
-
-/* Header Sections */
-.hbh-header {
+/* ── Header ── */
+.tc-header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 20px;
-  font-size: 14px;
-  font-weight: bold;
+  align-items: flex-start;
+  margin-bottom: 14px;
 }
 
-.hbh-header-left {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  padding-top: 10px;
+.tc-header-left {
   flex: 1;
 }
 
-.hbh-header-name,
-.hbh-header-week {
-  display: flex;
-  align-items: flex-end;
+.tc-header-right {
+  text-align: right;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.6;
 }
 
-.hbh-header-name span.label,
-.hbh-header-week span.label {
-  margin-right: 10px;
+.tc-company {
+  font-size: 14px;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+
+.tc-name-row,
+.tc-week-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.tc-bold {
+  font-weight: 700;
+  font-size: 12px;
   white-space: nowrap;
 }
 
-.hbh-header-name .hbh-line {
+.tc-name-line {
   flex: 1;
+  max-width: 320px;
   border-bottom: 2px solid #000;
-  min-height: 20px;
   position: relative;
-  max-width: 400px;
+  min-height: 22px;
 }
 
-.hbh-header-week .hbh-line {
-  width: 200px;
+.tc-week-line {
+  width: 180px;
   border-bottom: 2px solid #000;
-  min-height: 20px;
   position: relative;
+  min-height: 22px;
   text-align: center;
 }
 
-.hbh-week-sublabel {
-  font-size: 11px;
-  margin-top: 2px;
-  margin-left: 95px;
+.tc-sunday-label {
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 88px;
+  margin-top: -2px;
 }
 
-.hbh-header-name input,
-.hbh-header-week input {
-  position: absolute;
-  bottom: 0;
-  left: 0;
+.tc-inline-input {
   width: 100%;
   border: none;
   background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 2px 4px;
   outline: none;
-  font-size: 14px;
-  font-weight: bold;
-  padding: 0;
+  font-family: inherit;
 }
 
-.hbh-header-right {
-  text-align: left;
-  line-height: 1.4;
-  padding-left: 20px;
-  font-size: 15px;
+.tc-inline-input:focus {
+  background: #f0f7ff;
 }
 
-/* Press Down Hard Sidebar */
-.hbh-table-layout {
+.tc-print-val {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 2px 4px;
+}
+
+/* ── Body layout ── */
+.tc-body {
   display: flex;
-  align-items: flex-start;
-  margin-top: 20px;
+  align-items: stretch;
 }
 
-.hbh-press-down {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  font-size: 20px;
-  font-weight: bold;
-  letter-spacing: 2px;
-  margin-right: 10px;
-  margin-top: 50px;
+/* ── PRESS DOWN HARD sidebar ── */
+.tc-sidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #000;
+  padding: 8px 4px;
+  margin-right: 0;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  min-width: 24px;
+  user-select: none;
 }
 
-/* Table Wrapper */
-.hbh-table-wrapper {
+.tc-sidebar span {
+  line-height: 1.2;
+}
+
+.tc-sidebar-gap {
+  height: 6px;
+}
+
+/* ── Main table ── */
+.tc-table {
   flex: 1;
-}
-
-/* Main Table */
-.hbh-table {
-  width: 100%;
   border-collapse: collapse;
   border: 2px solid #000;
 }
 
-.hbh-table th,
-.hbh-table td {
+.tc-table th,
+.tc-table td {
   border: 1px solid #000;
+  text-align: center;
+  vertical-align: middle;
+  padding: 0;
+}
+
+.tc-label-col {
+  width: 88px;
+  min-width: 88px;
+}
+
+.tc-day-th {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 4px 1px;
+  text-transform: uppercase;
+  border-bottom: 1px solid #000;
+}
+
+.tc-hm-th {
+  font-size: 8px;
+  font-weight: 800;
+  padding: 2px 1px;
+  width: 30px;
+  min-width: 30px;
+}
+
+.tc-row-label {
+  text-align: right;
+  padding: 4px 6px 4px 4px;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+  width: 88px;
+  min-width: 88px;
+  line-height: 1.2;
+}
+
+.tc-total-label {
+  font-size: 9px;
+  white-space: normal;
+  line-height: 1.15;
+}
+
+/* ── Input cells ── */
+.tc-input-cell {
+  padding: 0;
+  height: 32px;
+  width: 30px;
+  min-width: 30px;
+}
+
+.tc-cell-input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
   text-align: center;
   font-size: 12px;
-  font-weight: bold;
+  font-weight: 600;
+  outline: none;
   padding: 0;
-  height: 35px;
-  vertical-align: middle;
+  font-family: inherit;
 }
 
-.hbh-table td:first-child {
-  text-align: right;
-  padding-right: 8px;
-  font-size: 11px;
-  width: 140px;
+.tc-cell-input:focus {
+  background: #f0f7ff;
 }
 
-/* Thick outer border effect */
-.hbh-table {
-  border-left: none; /* Let the first cell manage left border if needed, or keeping it */
-}
-.hbh-table tr:first-child th {
-  border-top: 2px solid #000;
-}
-.hbh-table tr:last-child td {
-  border-bottom: 2px solid #000;
+/* ── Calculated cells ── */
+.tc-total-row td {
+  height: 28px;
 }
 
-.hbh-table th {
-  padding: 5px 2px;
+.tc-calc-cell {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 2px;
 }
 
-.hbh-cell-input-wrapper {
-  display: flex;
-  width: 100%;
-  height: 100%;
-}
-
-.hbh-cell-input {
-  width: 100%;
-  height: 100%;
-  border: none;
-  text-align: center;
-  font-size: 13px;
-  font-weight: bold;
-  background: transparent;
-  outline: none;
-}
-
-.hbh-cell-split {
-  display: flex;
-  width: 100%;
-  height: 100%;
-}
-
-.hbh-cell-split > div {
-  flex: 1;
-  border-right: 1px solid #000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.hbh-cell-split > div:last-child {
-  border-right: none;
-}
-
-.hbh-cell-split input {
-  width: 100%;
-  height: 100%;
-  border: none;
-  text-align: center;
-  background: transparent;
-  outline: none;
-  font-weight: bold;
-  font-size: 13px;
-}
-
-.time-row {
-  height: 60px !important; /* give enough space for 24-hr time picker */
-}
-
-/* Side Info Box area */
-.hbh-side-info {
-  margin-left: 20px;
+/* ── Right panel ── */
+.tc-right {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: bold;
+  align-items: flex-start;
+  margin-left: 12px;
+  padding-top: 24px;
+  min-width: 130px;
 }
 
-.hbh-checkbox-row {
+.tc-check-row {
   display: flex;
   align-items: center;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
-.hbh-square-box {
-  width: 50px;
-  height: 35px;
-  border: 1px solid #000;
-  margin-right: 15px;
+.tc-check-box {
+  width: 44px;
+  height: 36px;
+  border: 2px solid #000;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
+  flex-shrink: 0;
 }
 
-.hbh-square-box input {
+.tc-check-input {
   width: 100%;
   height: 100%;
-  text-align: center;
   border: none;
+  background: transparent;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
   outline: none;
-  font-size: 20px;
 }
 
-.hbh-checkbox-label {
+.tc-check-print {
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.tc-check-text {
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
   white-space: nowrap;
 }
 
-.hbh-total-label {
-  margin-bottom: 5px;
-  margin-left: 20px;
+/* ── Total section on right ── */
+.tc-total-section {
+  margin-top: 12px;
 }
 
-.hbh-dash {
-  margin-right: 15px;
-  font-size: 24px;
+.tc-total-heading {
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 8px;
+  padding-left: 22px;
 }
 
-/* Footer Section */
-.hbh-footer {
-  margin-top: 50px;
+.tc-total-item {
   display: flex;
-  justify-content: space-between;
-  padding: 0 40px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.tc-total-box {
+  width: 44px;
+  height: 36px;
+  border: 2px solid #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tc-total-val {
   font-size: 12px;
-  font-weight: bold;
+  font-weight: 800;
 }
 
-.hbh-sig-box {
-  width: 350px;
-  border-top: 2px solid #000;
-  text-align: center;
-  padding-top: 5px;
-  position: relative;
+.tc-total-text {
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
 }
 
-.hbh-date-box {
+/* ── Signature row ── */
+.tc-sig-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 40px;
+  margin-top: 24px;
+  padding-top: 8px;
+}
+
+.tc-sig-section {
+  flex: 1;
+}
+
+.tc-date-section {
   width: 200px;
-  border-top: 2px solid #000;
-  text-align: center;
-  padding-top: 5px;
-  position: relative;
 }
 
-.hbh-hidden-input {
-  position: absolute;
-  bottom: 25px;
-  left: 0;
-  width: 100%;
-  border: none;
-  text-align: center;
-  font-size: 14px;
-  outline: none;
-  background: transparent;
+.tc-sig-line {
+  border-bottom: 2px solid #000;
+  margin-top: 4px;
+  margin-bottom: 4px;
 }
 
+.tc-sig-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-align: center;
+  letter-spacing: 0.1em;
+}
+
+.tc-sig-cursive {
+  font-family: cursive, 'Brush Script MT', Georgia, serif;
+  font-size: 26px;
+  color: #000;
+}
+
+.tc-sig-img {
+  max-height: 56px;
+  max-width: 280px;
+}
+
+.tc-sig-print {
+  min-height: 30px;
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 2px;
+}
+
+/* ═══════════════════════════════════════════
+   PRINT STYLES
+═══════════════════════════════════════════ */
 .print-only {
-  display: none !important;
+  display: none;
 }
 
 @media print {
-  @page { margin: 0; }
-  body {
-    -webkit-print-color-adjust: exact;
-    background: white;
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
-  .no-print {
+
+  html, body {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  @page {
+    size: landscape;
+    margin: 0.35in;
+  }
+
+  .hbh-editor {
+    background: #fff !important;
+    padding: 0 !important;
+    min-height: auto !important;
+  }
+
+  .tc {
+    margin: 0 !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: 2px solid #000 !important;
+    border-radius: 0 !important;
+    padding: 16px 20px 12px !important;
+    page-break-inside: avoid;
+  }
+
+  .tc-inline-input {
     display: none !important;
   }
-  .print-only {
+
+  .tc-print-val {
+    display: inline !important;
+  }
+
+  .tc-cell-input {
+    border: none !important;
+    background: transparent !important;
+  }
+
+  .tc-check-input {
+    display: none !important;
+  }
+
+  .tc-check-print {
     display: block !important;
   }
-  .hbh-print-container {
-    padding: 0;
-    max-width: 100%; margin: 2cm;
+
+  .tc-sig-print {
+    display: flex !important;
   }
-  input, button { border: none !important; background: transparent !important; resize: none; }
-  .hbh-text-input { display: none !important; }
+
+  .tc-sig-cursive { font-size: 22px !important; }
+  .tc-sig-img { max-height: 48px !important; }
 }
