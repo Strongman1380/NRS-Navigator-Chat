@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brandon Hinrichs - Interactive Resume</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s ease-out;
+        }
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -35px;
+            top: 5px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: #3b82f6;
+            border: 3px solid #eff6ff;
+            box-shadow: 0 0 0 3px #3b82f6;
+        }
+        .timeline-item {
+            position: relative;
+            padding-left: 20px;
+        }
+        .timeline-border {
+            position: absolute;
+            left: 20px; /* Aligned with timeline items */
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-color: #e5e7eb;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans leading-relaxed tracking-wide">
+
+    <!-- Navigation -->
+    <nav class="fixed w-full bg-white/90 backdrop-blur shadow-sm z-50">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex justify-between items-center h-16">
+                <a href="#" class="text-xl font-bold text-blue-600">BH</a>
+                <div class="hidden md:flex space-x-8 text-sm font-semibold">
+                    <a href="#summary" class="hover:text-blue-600 transition">Summary</a>
+                    <a href="#experience" class="hover:text-blue-600 transition">Experience</a>
+                    <a href="#skills" class="hover:text-blue-600 transition">Competencies</a>
+                    <a href="#education" class="hover:text-blue-600 transition">Education</a>
+                    <a href="#certifications" class="hover:text-blue-600 transition">Certifications</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header / Hero Section -->
+    <header class="pt-32 pb-20 bg-gradient-to-br from-slate-900 to-blue-900 text-white shadow-lg">
+        <div class="max-w-4xl mx-auto px-6 text-center reveal">
+            <h1 class="text-5xl font-extrabold mb-4 tracking-tight">Brandon Hinrichs</h1>
+            <p class="text-xl text-blue-200 mb-8 font-light">Specialized Populations Professional & Behavioral Health Expert</p>
+            <div class="flex flex-wrap justify-center gap-6 text-sm">
+                <div class="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full backdrop-blur-sm">
+                    <i class="fas fa-phone"></i> (402) 759-2210
+                </div>
+                <div class="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full backdrop-blur-sm">
+                    <i class="fas fa-envelope"></i> bhinrichs1380@gmail.com
+                </div>
+                <div class="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full backdrop-blur-sm">
+                    <i class="fas fa-map-marker-alt"></i> Geneva, NE 68361
+                </div>
+                <a href="https://www.linkedin.com/in/brandon-hinrichs-3841bb78" target="_blank" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-full transition shadow-lg">
+                    <i class="fab fa-linkedin"></i> LinkedIn Profile
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Summary Section -->
+    <section id="summary" class="py-20 bg-white">
+        <div class="max-w-4xl mx-auto px-6 reveal">
+            <h2 class="text-3xl font-bold mb-8 text-gray-800 border-b-2 border-blue-500 pb-2 inline-block">Professional Summary</h2>
+            <p class="text-lg text-gray-600 leading-relaxed">
+                Specialized populations professional with 15+ years direct experience in behavioral health, case management, systems development, and trauma-informed practice. Expert in psychosocial assessment, crisis intervention, multi-agency coordination, VA benefits navigation, and regulatory compliance. Strong background developing trauma-informed training curricula, implementing recovery and ASPIRE model frameworks, and translating complex clinical concepts into operational systems. Bachelor of Science in Psychology with Spanish minor; bilingual (English/Spanish). Proven ability to work independently and collaboratively in complex federal and state systems with a data-driven approach. Experience includes direct practice across child welfare, juvenile justice, behavioral health, veterans services, and community support systems.
+            </p>
+        </div>
+    </section>
+
+    <!-- Experience Section -->
+    <section id="experience" class="py-20 bg-slate-50 relative">
+        <div class="max-w-4xl mx-auto px-6">
+            <h2 class="text-3xl font-bold mb-12 text-gray-800 border-b-2 border-blue-500 pb-2 inline-block reveal">Professional Experience</h2>
+            
+            <div class="relative pl-8">
+                <div class="timeline-border hidden md:block"></div>
+                
+                <!-- Epworth Village -->
+                <div class="mb-12 relative timeline-item reveal">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
+                        <div class="flex flex-col md:flex-row md:justify-between md:items-start mb-4">
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800">Director of In-Home Family Services</h3>
+                                <p class="text-blue-600 font-semibold">Epworth Village</p>
+                            </div>
+                            <span class="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full mt-2 md:mt-0">2023 – Present • York, NE</span>
+                        </div>
+                        <p class="text-gray-600 mb-4">Oversee comprehensive behavioral health and family support services for 20+ active families. Conduct psychosocial assessments and develop individualized rehabilitation and service plans. Coordinate multi-agency services with DHHS, courts, and community providers.</p>
+                        <ul class="list-disc list-inside text-gray-600 space-y-2 text-sm ml-2">
+                            <li>Designed and implemented comprehensive trauma-informed practice training curriculum.</li>
+                            <li>Developed ASPIRE model framework for therapeutic parenting and family systems intervention.</li>
+                            <li>Built organizational systems for case documentation, digital photo/document libraries, and data tracking.</li>
+                            <li>Supervised direct care staff and conducted quality assurance reviews on documentation and service delivery.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Specialized Outpatient Services -->
+                <div class="mb-12 relative timeline-item reveal">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
+                        <div class="flex flex-col md:flex-row md:justify-between md:items-start mb-4">
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800">Community Treatment Aide / Support Worker</h3>
+                                <p class="text-blue-600 font-semibold">Specialized Outpatient Services</p>
+                            </div>
+                            <span class="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full mt-2 md:mt-0">Feb 2026 – Present • Grand Island, NE</span>
+                        </div>
+                        <p class="text-gray-600">Provide direct community support for individuals navigating mental health and substance abuse treatment. Coordinate care transitions, connect clients with resources, and maintain HIPAA-compliant documentation.</p>
+                    </div>
+                </div>
+
+                <!-- Heartland Boys Home -->
+                <div class="mb-12 relative timeline-item reveal">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
+                        <div class="flex flex-col md:flex-row md:justify-between md:items-start mb-4">
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800">Skill Build / Direct Care Staff</h3>
+                                <p class="text-blue-600 font-semibold">Heartland Boys Home</p>
+                            </div>
+                            <span class="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full mt-2 md:mt-0">Feb 2025 – Present • Geneva, NE</span>
+                        </div>
+                        <p class="text-gray-600">Deliver structured skill-building services to at-risk youth in residential care, aligned to individualized therapy goals and treatment plans in a strength-based, trauma-informed environment.</p>
+                    </div>
+                </div>
+
+                <!-- Poet Biorefining -->
+                <div class="mb-12 relative timeline-item reveal">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
+                        <div class="flex flex-col md:flex-row md:justify-between md:items-start mb-4">
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800">Operations Technician</h3>
+                                <p class="text-blue-600 font-semibold">Poet Biorefining</p>
+                            </div>
+                            <span class="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full mt-2 md:mt-0">June 2023 – Oct 2024 • Fairmont, NE</span>
+                        </div>
+                        <p class="text-gray-600">Improved operational efficiency by streamlining processes, managing inventory control systems, and enhancing safety protocols resulting in decreased incidents.</p>
+                    </div>
+                </div>
+
+                <!-- Nebraska Supreme Court -->
+                <div class="mb-12 relative timeline-item reveal">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
+                        <div class="flex flex-col md:flex-row md:justify-between md:items-start mb-4">
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800">Specialized Populations Officer</h3>
+                                <p class="text-blue-600 font-semibold">Nebraska Supreme Court</p>
+                            </div>
+                            <span class="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full mt-2 md:mt-0">Sept 2013 – May 2023 • Nebraska</span>
+                        </div>
+                        <p class="text-gray-600 mb-4">Ten years serving Nebraska's most complex and vulnerable populations through the state's specialized courts system, managing intersection of juvenile justice, behavioral health, veterans services, and child welfare.</p>
+                        <ul class="list-disc list-inside text-gray-600 space-y-2 text-sm ml-2">
+                            <li>Conducted comprehensive psychosocial assessments for 35+ individuals per month.</li>
+                            <li>Provided direct VA benefits navigation and disability claims support for veteran clients.</li>
+                            <li>Coordinated comprehensive services across DHHS, VA, courts, healthcare providers, and law enforcement.</li>
+                            <li>Facilitated Thinking for a Change, Moral Reconation Therapy, and other evidence-based programs.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Epworth Village (Past) -->
+                <div class="mb-12 relative timeline-item reveal">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
+                        <div class="flex flex-col md:flex-row md:justify-between md:items-start mb-4">
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800">IHSS Worker / Foster Care Licensing</h3>
+                                <p class="text-blue-600 font-semibold">Epworth Village</p>
+                            </div>
+                            <span class="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full mt-2 md:mt-0">Apr 2012 – Sept 2013 • Nebraska</span>
+                        </div>
+                        <p class="text-gray-600">Managed 15–17 cases per month in in-home family support capacity while conducting foster care home licensing inspections across rural Nebraska.</p>
+                    </div>
+                </div>
+                
+                <!-- Extensive Technical Support -->
+                <div class="mb-12 relative timeline-item reveal">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
+                        <div class="flex flex-col md:flex-row md:justify-between md:items-start mb-4">
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800">Extensive Computer & Technical Support</h3>
+                                <p class="text-blue-600 font-semibold">Remote/Various Locations</p>
+                            </div>
+                            <span class="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full mt-2 md:mt-0">Jul 2008 – Current</span>
+                        </div>
+                        <p class="text-gray-600">Maintained expertise across multiple technical platforms including SQL, advanced Google Suite/Excel, server configuration, troubleshooting, and AI platform integration for business processes.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Core Competencies -->
+    <section id="skills" class="py-20 bg-white">
+        <div class="max-w-4xl mx-auto px-6 reveal">
+            <h2 class="text-3xl font-bold mb-10 text-gray-800 border-b-2 border-blue-500 pb-2 inline-block">Core Competencies</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Group 1 -->
+                <div class="bg-blue-50 border border-blue-100 p-6 rounded-xl">
+                    <h3 class="text-lg font-bold text-blue-800 mb-4"><i class="fas fa-brain mr-2"></i>Clinical & Assessment</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="px-3 py-1 bg-white text-blue-700 text-xs font-semibold rounded-full shadow-sm">Psychosocial Assessment</span>
+                        <span class="px-3 py-1 bg-white text-blue-700 text-xs font-semibold rounded-full shadow-sm">Crisis Intervention</span>
+                        <span class="px-3 py-1 bg-white text-blue-700 text-xs font-semibold rounded-full shadow-sm">Trauma-Informed Practice</span>
+                        <span class="px-3 py-1 bg-white text-blue-700 text-xs font-semibold rounded-full shadow-sm">Complex PTSD Intervention</span>
+                        <span class="px-3 py-1 bg-white text-blue-700 text-xs font-semibold rounded-full shadow-sm">Motivational Interviewing</span>
+                        <span class="px-3 py-1 bg-white text-blue-700 text-xs font-semibold rounded-full shadow-sm">Grief & Loss Counseling</span>
+                    </div>
+                </div>
+                <!-- Group 2 -->
+                <div class="bg-emerald-50 border border-emerald-100 p-6 rounded-xl">
+                    <h3 class="text-lg font-bold text-emerald-800 mb-4"><i class="fas fa-network-wired mr-2"></i>Systems & Coordination</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="px-3 py-1 bg-white text-emerald-700 text-xs font-semibold rounded-full shadow-sm">Multi-Agency Coordination</span>
+                        <span class="px-3 py-1 bg-white text-emerald-700 text-xs font-semibold rounded-full shadow-sm">VA Benefits Navigation</span>
+                        <span class="px-3 py-1 bg-white text-emerald-700 text-xs font-semibold rounded-full shadow-sm">Regulatory Compliance</span>
+                        <span class="px-3 py-1 bg-white text-emerald-700 text-xs font-semibold rounded-full shadow-sm">DHHS & Court Systems</span>
+                    </div>
+                </div>
+                <!-- Group 3 -->
+                <div class="bg-purple-50 border border-purple-100 p-6 rounded-xl">
+                    <h3 class="text-lg font-bold text-purple-800 mb-4"><i class="fas fa-laptop-code mr-2"></i>Technical Skills</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="px-3 py-1 bg-white text-purple-700 text-xs font-semibold rounded-full shadow-sm">SQL & Databases</span>
+                        <span class="px-3 py-1 bg-white text-purple-700 text-xs font-semibold rounded-full shadow-sm">Python</span>
+                        <span class="px-3 py-1 bg-white text-purple-700 text-xs font-semibold rounded-full shadow-sm">HTML/CSS</span>
+                        <span class="px-3 py-1 bg-white text-purple-700 text-xs font-semibold rounded-full shadow-sm">Data Analytics</span>
+                        <span class="px-3 py-1 bg-white text-purple-700 text-xs font-semibold rounded-full shadow-sm">AI Integration</span>
+                    </div>
+                </div>
+                <!-- Group 4 -->
+                <div class="bg-amber-50 border border-amber-100 p-6 rounded-xl">
+                    <h3 class="text-lg font-bold text-amber-800 mb-4"><i class="fas fa-users-cog mr-2"></i>Leadership & Training</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="px-3 py-1 bg-white text-amber-700 text-xs font-semibold rounded-full shadow-sm">Curriculum Development</span>
+                        <span class="px-3 py-1 bg-white text-amber-700 text-xs font-semibold rounded-full shadow-sm">ASPIRE Implementation</span>
+                        <span class="px-3 py-1 bg-white text-amber-700 text-xs font-semibold rounded-full shadow-sm">Staff Management</span>
+                        <span class="px-3 py-1 bg-white text-amber-700 text-xs font-semibold rounded-full shadow-sm">Bilingual (English/Spanish)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Education & Certifications Section -->
+    <section id="education" class="py-20 bg-slate-50">
+        <div class="max-w-4xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-12">
+            
+            <div class="reveal">
+                <h2 class="text-3xl font-bold mb-8 text-gray-800 border-b-2 border-blue-500 pb-2 inline-block">Education</h2>
+                
+                <div class="mb-6">
+                    <h3 class="text-lg font-bold text-gray-800">Bachelor of Science in Psychology</h3>
+                    <p class="text-blue-600 font-semibold mb-2">Martin Luther College • May 2007</p>
+                    <p class="text-sm text-gray-600">Minor in Spanish. Study Abroad: Quito, Ecuador (Immersion)</p>
+                </div>
+
+                <div class="mb-6">
+                    <h3 class="text-lg font-bold text-gray-800">High School Diploma</h3>
+                    <p class="text-blue-600 font-semibold mb-2">Nebraska Lutheran High School • May 2003</p>
+                    <p class="text-sm text-gray-600">GPA: 3.78 • Honor Roll • Football, Powerlifting, Track</p>
+                </div>
+            </div>
+
+            <div id="certifications" class="reveal">
+                <h2 class="text-3xl font-bold mb-8 text-gray-800 border-b-2 border-blue-500 pb-2 inline-block">Certifications</h2>
+                <ul class="space-y-3 text-sm text-gray-700">
+                    <li class="flex items-start"><i class="fas fa-check-circle text-blue-500 mt-1 mr-2"></i> Certification in Trauma-Informed Practice Training (2024-2026)</li>
+                    <li class="flex items-start"><i class="fas fa-check-circle text-blue-500 mt-1 mr-2"></i> Crossroads (NCTI, 2023)</li>
+                    <li class="flex items-start"><i class="fas fa-check-circle text-blue-500 mt-1 mr-2"></i> Real Colors Assessment (NCTI, 2018)</li>
+                    <li class="flex items-start"><i class="fas fa-check-circle text-blue-500 mt-1 mr-2"></i> Moral Reconation Therapy (2018)</li>
+                    <li class="flex items-start"><i class="fas fa-check-circle text-blue-500 mt-1 mr-2"></i> Reflective Dialogue Facilitation</li>
+                    <li class="flex items-start"><i class="fas fa-check-circle text-blue-500 mt-1 mr-2"></i> Why Try Behavioral Cognitive Training</li>
+                    <li class="flex items-start"><i class="fas fa-check-circle text-blue-500 mt-1 mr-2"></i> Thinking For A Change</li>
+                    <li class="flex items-start"><i class="fas fa-check-circle text-blue-500 mt-1 mr-2"></i> Home Builders / Wrap Around</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Additional Interests Footer -->
+    <footer class="bg-gray-900 text-gray-400 py-12 text-center text-sm">
+        <div class="max-w-3xl mx-auto px-6">
+            <h3 class="text-white text-xl font-bold mb-4">Personal & Additional Interests</h3>
+            <p class="mb-6 leading-relaxed">Accomplished powerlifter and coach • Active Christian faith • Advocate for community impact and system improvement • Skilled in gardening and landscaping • Enthusiast for continuous, research-based self-education and digital strategy web development via Hinrichs Specialty Services.</p>
+            <p>&copy; 2024-2026 Brandon Hinrichs. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Interactive Scripts -->
+    <script>
+        // Scroll reveal animation
+        function reveal() {
+            var reveals = document.querySelectorAll(".reveal");
+            for (var i = 0; i < reveals.length; i++) {
+                var windowHeight = window.innerHeight;
+                var elementTop = reveals[i].getBoundingClientRect().top;
+                var elementVisible = 100;
+                if (elementTop < windowHeight - elementVisible) {
+                    reveals[i].classList.add("active");
+                }
+            }
+        }
+        window.addEventListener("scroll", reveal);
+        // Trigger once on load
+        reveal();
+    </script>
+</body>
+</html>
