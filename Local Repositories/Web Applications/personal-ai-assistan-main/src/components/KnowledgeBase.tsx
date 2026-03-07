@@ -407,8 +407,10 @@ Provide a helpful, accurate response based on the stored knowledge. If the infor
                     }}
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center gap-2">
-                        {getEntryIcon(entry.type)}
+                      <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
+                        <div className="shrink-0 flex items-center">
+                          {getEntryIcon(entry.type)}
+                        </div>
                         <h4 className="font-semibold truncate text-sm">{entry.title}</h4>
                       </div>
                       <Button

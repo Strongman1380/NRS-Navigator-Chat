@@ -340,7 +340,8 @@ Return ONLY this JSON:
       });
 
       if (!response.ok) {
-        throw new Error('Failed to run agent request');
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP error ${response.status}`);
       }
 
       const data = await response.json();
