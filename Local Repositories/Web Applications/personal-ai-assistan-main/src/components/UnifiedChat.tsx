@@ -101,7 +101,7 @@ export function UnifiedChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const detectIntent = (text: string): "email" | "rewrite" | "calendar" | "social" | "general" => {
+  const detectIntent = (text: string): "email" | "rewrite" | "calendar" | "social" | "general" | "agent" => {
     const lower = text.toLowerCase();
 
     // Social media detection
@@ -161,6 +161,18 @@ export function UnifiedChat() {
       return "calendar";
     }
 
+    // Checking if backend should handle it via AI Agent (Hostinger, web crawl tools, Pica, etc.)
+    if (
+      lower.includes("hostinger") ||
+      lower.includes("scan my") ||
+      lower.includes("check my email") ||
+      lower.includes("inbox") ||
+      lower.includes("search the web") ||
+      lower.includes("scrape")
+    ) {
+      return "agent";
+    }
+
     return "general";
   };
 
@@ -184,7 +196,7 @@ export function UnifiedChat() {
 
       const kbContext = getContextForAI(inputText, 8);
 
-      if (intent === "email") {
+      if (intent === "email" && !inputText.toLowerCase().includes("hostinger") && !inputText.toLowerCase().includes("check")) {
         assistantMessage = await handleEmailRequest(inputText, kbContext);
       } else if (intent === "rewrite") {
         assistantMessage = await handleRewriteRequest(inputText, kbContext);
@@ -192,6 +204,8 @@ export function UnifiedChat() {
         assistantMessage = await handleCalendarRequest(inputText, kbContext);
       } else if (intent === "social") {
         assistantMessage = await handleSocialRequest(inputText);
+      } else if (intent === "agent" || (intent === "email" && (inputText.toLowerCase().includes("hostinger") || inputText.toLowerCase().includes("check")))) {
+        assistantMessage = await handleAgentRequest(inputText, kbContext);
       } else {
         assistantMessage = await handleGeneralRequest(inputText, kbContext);
       }
@@ -315,6 +329,39 @@ Return ONLY this JSON:
         },
       },
     };
+  };
+
+  const handleAgentRequest = async (input: string, kbContext: string): Promise<Message> => {
+    try {
+      const response = await fetch('/api/ai/assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: input, identity: 'brandon' })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to run agent request');
+      }
+
+      const data = await response.json();
+      
+      return {
+        id: `msg_${Date.now()}`,
+        role: "assistant",
+        content: data.message || "I handled that with the agent!",
+        timestamp: new Date(),
+        type: "general"
+      };
+    } catch (err) {
+      console.error(err);
+      return {
+        id: `msg_${Date.now()}`,
+        role: "assistant",
+        content: "I had trouble connecting to the backend agent tools.",
+        timestamp: new Date(),
+        type: "general"
+      };
+    }
   };
 
   const handleGeneralRequest = async (input: string, kbContext: string): Promise<Message> => {

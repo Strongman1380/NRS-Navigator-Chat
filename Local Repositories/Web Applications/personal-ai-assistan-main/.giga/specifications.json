@@ -1,0 +1,22 @@
+[
+  {
+    "fileName": "main-overview.mdc",
+    "description": "Complete system overview detailing the human services compliance and documentation platform architecture, core components, and high-level interactions"
+  },
+  {
+    "fileName": "risk-analysis-algorithms.mdc",
+    "description": "Detailed documentation of the risk analysis and prioritization algorithms, including risk categorization systems, severity classifications, and prioritization logic"
+  },
+  {
+    "fileName": "compliance-validation-model.mdc",
+    "description": "Comprehensive documentation of the compliance validation system, including required documentation elements, validation rules, and internal consistency checks"
+  },
+  {
+    "fileName": "document-processing-flow.mdc",
+    "description": "Documentation of the document processing pipeline, including professional standards enforcement, text transformation rules, and audience-specific content adaptation"
+  },
+  {
+    "fileName": "case-management-model.mdc",
+    "description": "Detailed documentation of the case management data model, timeline tracking system, event categorization, and task management workflows"
+  }
+]

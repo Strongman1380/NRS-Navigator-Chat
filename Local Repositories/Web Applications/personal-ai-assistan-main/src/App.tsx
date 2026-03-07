@@ -1,11 +1,12 @@
 import { Card } from '@/components/ui/card'
-import { ChatCircleDots, House, Database, Table, Plugs } from '@phosphor-icons/react'
+import { ChatCircleDots, House, Database, Table, Plugs, HardDrive } from '@phosphor-icons/react'
 import { Toaster } from '@/components/ui/sonner'
 import { UnifiedChat } from '@/components/UnifiedChat'
 import { KnowledgeBase } from '@/components/KnowledgeBase'
 import { DataExtractor } from '@/components/DataExtractor'
 import { WelcomeScreen } from '@/components/WelcomeScreen'
 import { PicaIntegrations } from '@/components/PicaIntegrations'
+import { DriveBrowser } from '@/components/DriveBrowser'
 import { useState } from 'react'
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
   const tools = [
     { id: 'welcome', label: 'Welcome', icon: House, component: WelcomeScreen, description: 'Overview and quick start' },
     { id: 'chat', label: 'Chat', icon: ChatCircleDots, component: UnifiedChat, description: 'Your AI assistant for emails, rewrites, scheduling & more' },
+    { id: 'drive', label: 'Drive', icon: HardDrive, component: DriveBrowser, description: 'Browse and ingest Google Drive documents' },
     { id: 'knowledge', label: 'Knowledge Base', icon: Database, component: KnowledgeBase, description: 'Browse and manage your stored information' },
     { id: 'extractor', label: 'Data Extractor', icon: Table, component: DataExtractor, description: 'Extract structured data from documents' },
     { id: 'integrations', label: 'Integrations', icon: Plugs, component: PicaIntegrations, description: 'Connect and manage third-party integrations' },
