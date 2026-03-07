@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Loader2, Phone, AlertCircle, MapPin, User, ShieldCheck, Info, Search, BookmarkPlus, MessageCircle, Bookmark, LogOut } from 'lucide-react';
+import { Send, Loader2, Phone, AlertCircle, MapPin, User, ShieldCheck, Info, Search, BookmarkPlus, MessageCircle, Bookmark, LogOut, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { generateAIResponse, generateTopicSummary } from '../lib/aiResponses';
+import { generateTopicSummary } from '../lib/aiResponses';
 import ResourceBrowser from './ResourceBrowser';
 import SavedConversations from './SavedConversations';
+import PersonalDashboard from './PersonalDashboard';
 
 interface Message {
   id: string;
@@ -26,16 +27,8 @@ interface Resource {
   city?: string;
 }
 
-interface ResourceSuggestion {
-  title: string;
-  phone?: string;
-  address?: string;
-  city?: string;
-  website?: string;
-  source: 'local' | 'web';
-}
 
-type ActiveTab = 'chat' | 'resources' | 'saved';
+type ActiveTab = 'chat' | 'resources' | 'saved' | 'dashboard';
 
 const HUMAN_REQUEST_PATTERNS = [
   'human',
@@ -47,10 +40,14 @@ const HUMAN_REQUEST_PATTERNS = [
   'live agent',
   'real help',
   'connect me to',
+  'talk to brandon',
+  'speak with brandon',
+  'need a person',
+  'not ai',
 ];
 
 export default function EnhancedPublicChat() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, hasDashboardAccess } = useAuth();
   const isGuest = !user?.email; // anonymous users have no email
   const stripeDonationUrl = import.meta.env.VITE_STRIPE_DONATION_URL as string | undefined;
   const [hasConsented, setHasConsented] = useState(false);
@@ -64,17 +61,22 @@ export default function EnhancedPublicChat() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('chat');
   const [conversationSaved, setConversationSaved] = useState(false);
   const [savingConversation, setSavingConversation] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [isAdminTyping, setIsAdminTyping] = useState(false);
-  const [humanEscalationSent, setHumanEscalationSent] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const escalationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingBroadcastRef = useRef<number>(0);
+  const isHumanConnectedRef = useRef(false);
+  const humanEscalationSentRef = useRef(false);
 
   const handleConsent = async () => {
     const consentAcceptedAt = new Date().toISOString();
-    await initializeChat(consentAcceptedAt);
-    setHasConsented(true);
+    const ok = await initializeChat(consentAcceptedAt);
+    if (ok) {
+      setHasConsented(true);
+    }
   };
 
   useEffect(() => {
@@ -119,8 +121,8 @@ export default function EnhancedPublicChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const initializeChat = async (consentAcceptedAt: string) => {
-    if (!user) return;
+  const initializeChat = async (consentAcceptedAt: string): Promise<boolean> => {
+    if (!user) return false;
 
     const { data, error } = await supabase
       .from('conversations')
@@ -138,7 +140,7 @@ export default function EnhancedPublicChat() {
 
     if (error) {
       console.error('Error creating conversation:', error);
-      return;
+      return false;
     }
 
     setConversationId(data.id);
@@ -165,12 +167,13 @@ export default function EnhancedPublicChat() {
       id: 'welcome-' + Date.now(),
       conversation_id: data.id,
       sender_type: 'ai',
-      content: "Hi, I'm NRS Navigator. I help people find resources and take the next right step. What brings you here today?",
+      content: "Hey, I'm the Next Right Step Recovery Navigator. I'm an AI tool that helps people find resources like housing, treatment, food, legal help, employment, and more across Nebraska. I'm not a counselor, lawyer, or case manager, and I'm not connected to your supervision or court case. If you need to talk to a real person, I can connect you. What can I help you with today?",
       is_read: false,
       created_at: new Date().toISOString(),
     };
 
     setMessages([welcomeMessage]);
+    return true;
   };
 
   const addMessageIfNew = (msg: Message) => {
@@ -198,7 +201,7 @@ export default function EnhancedPublicChat() {
         if (newOnes.length === 0) return prev;
 
         if (newOnes.some(m => m.sender_type === 'admin')) {
-          setIsHumanConnected(true);
+          setIsHumanConnected(true); isHumanConnectedRef.current = true;
         }
 
         return [...prev, ...newOnes];
@@ -223,7 +226,7 @@ export default function EnhancedPublicChat() {
             addMessageIfNew(newMessage);
           }
           if (newMessage.sender_type === 'admin') {
-            setIsHumanConnected(true);
+            setIsHumanConnected(true); isHumanConnectedRef.current = true;
           }
         }
       )
@@ -248,7 +251,7 @@ export default function EnhancedPublicChat() {
         (payload) => {
           const updated = payload.new as { assigned_to_human?: boolean };
           if (updated.assigned_to_human) {
-            setIsHumanConnected(true);
+            setIsHumanConnected(true); isHumanConnectedRef.current = true;
           }
         }
       )
@@ -259,8 +262,12 @@ export default function EnhancedPublicChat() {
     };
   };
 
+  const TYPING_THROTTLE_MS = 400;
+
   const broadcastTyping = () => {
-    if (typingChannelRef.current) {
+    const now = Date.now();
+    if (typingChannelRef.current && now - lastTypingBroadcastRef.current > TYPING_THROTTLE_MS) {
+      lastTypingBroadcastRef.current = now;
       typingChannelRef.current.send({
         type: 'broadcast',
         event: 'typing',
@@ -271,12 +278,15 @@ export default function EnhancedPublicChat() {
 
   const startEscalationTimer = () => {
     // Don't start if human already connected or escalation already sent
-    if (isHumanConnected || humanEscalationSent) return;
+    if (isHumanConnectedRef.current || humanEscalationSentRef.current) return;
 
     // Clear existing timer
     if (escalationTimerRef.current) clearTimeout(escalationTimerRef.current);
 
     escalationTimerRef.current = setTimeout(async () => {
+      // Re-check refs inside the callback to avoid stale closure
+      if (isHumanConnectedRef.current || humanEscalationSentRef.current) return;
+
       // Double-check: has a human responded in the meantime?
       const { data: convo } = await supabase
         .from('conversations')
@@ -286,24 +296,17 @@ export default function EnhancedPublicChat() {
 
       if (convo?.assigned_to_human) return;
 
-      // Send "reaching out to a human" message
-      const escalationMsg: Message = {
-        id: 'escalation-' + Date.now(),
-        conversation_id: conversationId!,
-        sender_type: 'ai',
-        content: "We're reaching out to a human support specialist right now. Please hold tight — someone will be with you shortly. In the meantime, feel free to continue sharing what you need help with.",
-        is_read: false,
-        created_at: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, escalationMsg]);
-      setHumanEscalationSent(true);
+      // Mark ref immediately to prevent duplicate escalations from concurrent timers
+      humanEscalationSentRef.current = true;
 
-      // Persist the message
-      await supabase.from('messages').insert({
+      // Insert first to get the real DB id — avoids temp-id / realtime duplicate
+      const { data: escalationMsg } = await supabase.from('messages').insert({
         conversation_id: conversationId,
         sender_type: 'ai',
-        content: escalationMsg.content,
-      });
+        content: "I'm reaching out to Brandon Hinrichs, our human support specialist, right now. He'll be with you shortly. In the meantime, feel free to keep sharing what you need help with — you don't have to figure this out alone.",
+      }).select().single();
+
+      if (escalationMsg) addMessageIfNew(escalationMsg);
 
       // Flag the conversation so admin sees it
       await supabase.from('conversations').update({
@@ -363,80 +366,21 @@ export default function EnhancedPublicChat() {
     startEscalationTimer();
   };
 
-  const inferNeedFromText = (text: string): 'food' | 'shelter' | 'treatment' | 'medical' | 'legal' | 'other' | null => {
-    const lower = text.toLowerCase();
-
-    if (/\b(food|foodbox|food box|hungry|meal|eat|pantry|food bank|food source|food sources|emergency food|groceries|soup kitchen|snap|ebt)\b/.test(lower)) return 'food';
-    if (/\b(shelter|housing|homeless|unhoused|place to stay|evicted|sleeping outside|living in car|rent help|utility help)\b/.test(lower)) return 'shelter';
-    if (/\b(treatment|rehab|detox|addiction|recovery|sober|withdrawal|suboxone|aa|na|mat)\b/.test(lower)) return 'treatment';
-    if (/\b(medical|doctor|clinic|health|medicine|prescription|hospital|dental|mental health)\b/.test(lower)) return 'medical';
-    if (/\b(legal|lawyer|attorney|court|eviction notice|warrant|legal aid)\b/.test(lower)) return 'legal';
-    return null;
-  };
-
   const isHumanRequest = (text: string): boolean => {
     const lower = text.toLowerCase();
     return HUMAN_REQUEST_PATTERNS.some((pattern) => lower.includes(pattern));
   };
 
-  const extractCityFromText = (text: string): string | null => {
-    const cityPattern =
-      /\b(omaha|lincoln|bellevue|grand island|kearney|hastings|north platte|fremont|norfolk|columbus|papillion|la vista|ralston|gretna|scottsbluff|south sioux city|beatrice|lexington|york|seward|plattsmouth|nebraska city|wayne|chadron|sidney|alliance|mccook|broken bow|valentine|ogallala|holdrege|central city)\b/i;
-    const match = text.match(cityPattern);
-    if (!match?.[1]) return null;
-
-    return match[1]
-      .split(' ')
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-      .join(' ');
-  };
-
-  const fetchResourceSuggestions = async (
-    need: 'food' | 'shelter' | 'treatment' | 'medical' | 'legal' | 'other',
-    city: string | null,
-    queryText: string,
-  ): Promise<ResourceSuggestion[]> => {
-    try {
-      const { data, error } = await supabase.functions.invoke('resource-search', {
-        body: { need, city, queryText, limit: 5 },
-      });
-
-      if (error) {
-        console.error('Resource search function error:', error);
-        return [];
-      }
-
-      const functionSuggestions = (data?.suggestions || []) as Array<{
-        title?: string;
-        phone?: string;
-        address?: string;
-        city?: string;
-        website?: string;
-        source?: 'local' | 'web';
-      }>;
-
-      return functionSuggestions
-        .filter((s) => !!s.title)
-        .slice(0, 5)
-        .map((s) => ({
-          title: s.title!,
-          phone: s.phone,
-          address: s.address,
-          city: s.city,
-          website: s.website,
-          source: s.source || 'local',
-        }));
-    } catch (error) {
-      console.error('Resource search invocation failed:', error);
-      return [];
-    }
+  const isCrisisMessage = (text: string): boolean => {
+    const lower = text.toLowerCase();
+    return /\b(suicid|kill myself|hurt myself|self.?harm|end it all|want to die|overdose|od|not safe right now)\b/i.test(lower);
   };
 
   const generateSmartAIResponse = async (userMessage: string) => {
     // If a human admin has taken over, don't generate AI responses
     if (isHumanConnected) return;
 
-    // Also check the DB in case the flag was set between renders
+    // Check the DB in case the flag was set between renders
     const { data: convo } = await supabase
       .from('conversations')
       .select('assigned_to_human')
@@ -444,13 +388,43 @@ export default function EnhancedPublicChat() {
       .single();
 
     if (convo?.assigned_to_human) {
-      setIsHumanConnected(true);
+      setIsHumanConnected(true); isHumanConnectedRef.current = true;
+      return;
+    }
+
+    // Deterministic crisis trigger — fast, no GPT round-trip needed.
+    if (isCrisisMessage(userMessage)) {
+      const crisisMessage = 'I hear you, and what you\'re feeling matters. Please call or text 988 right now — trained counselors are available 24/7. If you\'re in immediate danger, call 911. I\'m also connecting you with Brandon Hinrichs, our human support specialist, who will follow up with you directly. You don\'t have to figure this out alone.';
+
+      const { data: aiMsg } = await supabase.from('messages').insert({
+        conversation_id: conversationId,
+        sender_type: 'ai',
+        content: crisisMessage,
+      }).select().single();
+
+      // Use the real DB id so realtime deduplicates correctly
+      if (aiMsg) addMessageIfNew(aiMsg);
+
+      await supabase.from('conversations').update({
+        needs_human_response: true,
+        status: 'escalated',
+        priority: 'urgent',
+        urgency: 'urgent',
+        updated_at: new Date().toISOString(),
+      }).eq('id', conversationId);
+
+      await supabase.from('analytics_events').insert({
+        event_type: 'crisis_detected',
+        conversation_id: conversationId,
+        metadata: { timestamp: new Date().toISOString(), source: 'runtime_crisis_trigger' },
+      });
+
       return;
     }
 
     // Deterministic human handoff trigger.
     if (isHumanRequest(userMessage)) {
-      const escalationMessage = "I understand you'd like to speak with a human. I’m connecting you with our support team now.";
+      const escalationMessage = "It sounds like what you're going through needs more than I can offer right now. I'm connecting you with Brandon Hinrichs, who built this platform and has over 10 years of experience in human services. He'll follow up with you directly. You don't have to figure this out alone.";
 
       const { data: aiMsg } = await supabase.from('messages').insert({
         conversation_id: conversationId,
@@ -458,18 +432,7 @@ export default function EnhancedPublicChat() {
         content: escalationMessage,
       }).select().single();
 
-      if (aiMsg) {
-        addMessageIfNew(aiMsg);
-      } else {
-        setMessages((prev) => [...prev, {
-          id: 'ai-human-' + Date.now(),
-          conversation_id: conversationId!,
-          sender_type: 'ai' as const,
-          content: escalationMessage,
-          is_read: false,
-          created_at: new Date().toISOString(),
-        }]);
-      }
+      if (aiMsg) addMessageIfNew(aiMsg);
 
       await supabase.from('conversations').update({
         needs_human_response: true,
@@ -486,105 +449,35 @@ export default function EnhancedPublicChat() {
       return;
     }
 
-    // Build context from visitor messages only so generic AI text
-    // does not bias fallback topic selection (e.g., to "legal").
-    const previousTopics = messages
-      .filter(m => m.sender_type === 'visitor' && m.content)
-      .flatMap(m => {
-        const topics: string[] = [];
-        const lower = m.content.toLowerCase();
-        if (lower.includes('shelter') || lower.includes('housing')) topics.push('housing');
-        if (lower.includes('treatment') || lower.includes('rehab')) topics.push('treatment');
-        if (lower.includes('food') || lower.includes('meal')) topics.push('food');
-        if (lower.includes('medical') || lower.includes('doctor')) topics.push('medical');
-        if (lower.includes('legal') || lower.includes('lawyer')) topics.push('legal');
-        if (lower.includes('crisis') || lower.includes('988')) topics.push('crisis');
-        return topics;
-      });
+    // General case: send to the GPT-4 chat edge function.
+    // It has full access to the knowledge base, live 211 API, and conversation context.
+    // It inserts the AI message itself; realtime delivers it to the UI.
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
 
-    const visitorMessages = messages.filter(m => m.sender_type === 'visitor');
-    const visitorContext = `${visitorMessages.slice(-4).map(m => m.content).join(' ')} ${userMessage}`;
-    const detectedNeed = inferNeedFromText(visitorContext);
-    const detectedCity = extractCityFromText(visitorContext);
+      const chatHistory = messages
+        .filter(m => !m.id.startsWith('temp-') && m.sender_type !== 'ai' || m.sender_type === 'ai')
+        .map(m => ({
+          role: (m.sender_type === 'visitor' ? 'user' : 'assistant') as 'user' | 'assistant',
+          content: m.content,
+        }));
+      // Append the current visitor message
+      chatHistory.push({ role: 'user', content: userMessage });
 
-    let aiMessage = '';
-    let aiPriority: 'low' | 'medium' | 'high' | 'urgent' | undefined = 'medium';
-    let aiTags: string[] | undefined;
-
-    if (detectedNeed) {
-      const suggestions = await fetchResourceSuggestions(detectedNeed, detectedCity, userMessage);
-
-      if (suggestions.length > 0) {
-        const intro = detectedCity
-          ? `I found ${detectedNeed} resources in or near ${detectedCity}:`
-          : `I found ${detectedNeed} resources that may help:`;
-        const lines = suggestions.map((s, index) => {
-          const locationPart = s.address || s.city ? ` — ${s.address || s.city}` : '';
-          const phonePart = s.phone ? ` | ${s.phone}` : '';
-          const websitePart = s.website ? ` | ${s.website}` : '';
-          return `${index + 1}. ${s.title}${locationPart}${phonePart}${websitePart}`;
-        });
-        const webNote = suggestions.some((s) => s.source === 'web')
-          ? '\n\nI pulled some options from public web listings. Please call ahead to verify hours and availability.'
-          : '';
-
-        aiMessage = `${intro}\n\n${lines.join('\n')}${webNote}\n\nIf you want, I can keep searching for more options or narrow by walkable distance.`;
-        aiPriority = detectedNeed === 'food' || detectedNeed === 'shelter' || detectedNeed === 'treatment' ? 'high' : 'medium';
-        aiTags = [detectedNeed.charAt(0).toUpperCase() + detectedNeed.slice(1)];
-      }
-    }
-
-    if (!aiMessage) {
-      const aiResult = generateAIResponse(userMessage, {
-        messageCount: visitorMessages.length,
-        previousTopics: [...new Set(previousTopics)],
-      });
-      aiMessage = aiResult.message;
-      aiPriority = aiResult.priority;
-      aiTags = aiResult.tags;
-    }
-
-    // Insert the AI response into Supabase so both user and admin see it
-    const { data: aiMsg } = await supabase.from('messages').insert({
-      conversation_id: conversationId,
-      sender_type: 'ai',
-      content: aiMessage,
-    }).select().single();
-
-    // Add to local state directly — don't rely on realtime subscription
-    if (aiMsg) {
-      addMessageIfNew(aiMsg);
-    } else {
-      // Fallback: add optimistically if insert didn't return data
-      setMessages((prev) => [...prev, {
-        id: 'ai-' + Date.now(),
-        conversation_id: conversationId!,
-        sender_type: 'ai' as const,
-        content: aiMessage,
-        is_read: false,
-        created_at: new Date().toISOString(),
-      }]);
-    }
-
-    // Update conversation metadata based on AI analysis
-    if (aiPriority === 'urgent') {
-      await supabase.from('conversations').update({
-        priority: 'urgent',
-        urgency: 'urgent',
-        updated_at: new Date().toISOString(),
-      }).eq('id', conversationId);
-
-      await supabase.from('analytics_events').insert({
-        event_type: 'crisis_detected',
-        conversation_id: conversationId,
-        metadata: { timestamp: new Date().toISOString(), tags: aiTags },
-      });
-    } else if (aiPriority && aiPriority !== 'low') {
-      await supabase.from('conversations').update({
-        priority: aiPriority,
-        category: aiTags?.[0] || null,
-        updated_at: new Date().toISOString(),
-      }).eq('id', conversationId);
+      await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ messages: chatHistory, conversationId }),
+        }
+      );
+      // Realtime subscription delivers the AI message — no local state update needed.
+    } catch (err) {
+      console.error('Chat edge function error:', err);
     }
   };
 
@@ -612,8 +505,12 @@ export default function EnhancedPublicChat() {
       title,
     });
 
-    if (!error) {
+    if (error) {
+      console.error('Failed to save conversation:', error);
+      setSaveError(error.message || 'Failed to save conversation');
+    } else {
       setConversationSaved(true);
+      setSaveError(null);
     }
     setSavingConversation(false);
   };
@@ -630,8 +527,8 @@ export default function EnhancedPublicChat() {
               <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-100 rounded-2xl mb-3">
                 <ShieldCheck className="w-7 h-7 text-blue-600" />
               </div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">NRS Navigator</h1>
-              <p className="text-sm text-slate-600 mt-1">Resource Navigation Support</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Next Right Step</h1>
+              <p className="text-sm text-slate-600 mt-1">Recovery Resource Navigation</p>
             </div>
 
             {/* Disclaimer card */}
@@ -651,7 +548,7 @@ export default function EnhancedPublicChat() {
                 <div>
                   <h3 className="font-semibold text-slate-900 mb-1">What This Service Is</h3>
                   <p>
-                    NRS Navigator is an <strong>AI-assisted resource navigation tool</strong> that helps connect you with community resources such as shelters, food assistance, treatment programs, medical care, and other services in Nebraska. It provides <strong>general information and resource referrals only</strong>.
+                    Next Right Step is an <strong>AI-powered resource guide</strong> built specifically for people navigating recovery, reentry, and the justice system in Nebraska. It helps connect you with housing, treatment, food, legal help, employment, benefits, and other services. It provides <strong>general information and resource referrals only</strong>.
                   </p>
                 </div>
 
@@ -670,7 +567,7 @@ export default function EnhancedPublicChat() {
                 <div>
                   <h3 className="font-semibold text-slate-900 mb-1">AI Disclosure</h3>
                   <p>
-                    You are initially interacting with an <strong>artificial intelligence system</strong>, not a human. The AI is designed to help with basic resource navigation questions. A trained human support specialist monitors conversations and may join the chat when more detailed support is needed. You will be notified when a human joins the conversation.
+                    You are initially interacting with an <strong>AI system</strong>, not a human. The AI helps you find resources and answer questions about services in Nebraska. It is <strong>not a counselor, lawyer, or case manager</strong>, and it is <strong>not connected to your supervision or court case</strong>. A human support specialist monitors conversations and may join when needed. You will be notified when a human joins.
                   </p>
                 </div>
 
@@ -711,10 +608,10 @@ export default function EnhancedPublicChat() {
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4">
                   <h3 className="font-semibold text-blue-900 mb-2">Need a Real Person?</h3>
                   <p className="text-blue-800 mb-2">
-                    If at any point you would like to speak with a real person, simply say so in the chat (for example, "I'd like to talk to someone") and the AI will connect you with a member of our human support staff.
+                    If at any point you would like to speak with a real person, simply say so in the chat (for example, "I'd like to talk to someone") and the AI will connect you with Brandon Hinrichs, the person behind this platform.
                   </p>
                   <p className="text-blue-800 mb-2">
-                    Our staff is <strong>trauma-informed</strong>, with <strong>over 10 years of experience</strong> working directly in the human services field. The same limitations apply — our staff <strong>will not provide therapeutic insight, diagnoses, or clinical treatment</strong> — but they can provide a compassionate, knowledgeable person to talk to who understands what you're going through and can help guide you to the right resources.
+                    Brandon is <strong>trauma-informed</strong>, with <strong>over 10 years of experience</strong> working directly in human services. He <strong>will not provide therapeutic insight, diagnoses, or clinical treatment</strong> — but he can provide a compassionate, knowledgeable person to talk to who understands what you're going through and can help guide you to the right resources.
                   </p>
                 </div>
 
@@ -730,7 +627,7 @@ export default function EnhancedPublicChat() {
                 <div>
                   <h3 className="font-semibold text-slate-900 mb-1">Privacy & Data</h3>
                   <p>
-                    We collect only the minimum information necessary to connect you with resources. Your conversation is stored securely and is accessible only to authorized support staff. We do not sell or share your data with third parties. You are not required to provide your name or any identifying information to use this service.
+                    We collect only the minimum information necessary to connect you with resources. Your conversation is stored securely and is accessible only to authorized support staff. <strong>We do not share information with probation officers, courts, or law enforcement.</strong> We do not sell or share your data with third parties. You are not required to provide your name or any identifying information to use this service.
                   </p>
                 </div>
 
@@ -752,7 +649,7 @@ export default function EnhancedPublicChat() {
                       className="mt-0.5 w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer flex-shrink-0"
                     />
                     <span className="text-slate-700 text-[13px] sm:text-sm leading-relaxed group-hover:text-slate-900 transition-colors">
-                      I have read and understand the above information. I acknowledge that this is an <strong>AI-assisted resource navigation tool</strong>, not a substitute for professional counseling, therapy, or medical care. I understand that a human may monitor and join this conversation, and that I should contact 988 or 911 if I am in immediate crisis.
+                      I have read and understand the above information. I acknowledge that this is an <strong>AI-powered resource navigation tool</strong>, not a substitute for professional counseling, therapy, or medical care. I understand that this platform is <strong>not connected to courts, probation, or law enforcement</strong>, that a human may monitor and join this conversation, and that I should contact 988 or 911 if I am in immediate crisis.
                     </span>
                   </label>
                 </div>
@@ -772,7 +669,7 @@ export default function EnhancedPublicChat() {
 
             {/* Footer note */}
             <p className="text-center text-[11px] sm:text-xs text-slate-400 mt-4">
-              NRS Navigator is not a licensed healthcare provider. This service complies with applicable state and federal regulations regarding AI-assisted communications.
+              Next Right Step Recovery Navigator is not a licensed healthcare provider. This service complies with applicable state and federal regulations regarding AI-assisted communications.
             </p>
           </div>
         </div>
@@ -805,7 +702,7 @@ export default function EnhancedPublicChat() {
 
           <div className="flex items-center justify-between">
             <div className="min-w-0 flex-1">
-              <h1 className="text-base sm:text-lg md:text-xl font-bold text-slate-900 truncate">NRS Navigator</h1>
+              <h1 className="text-base sm:text-lg md:text-xl font-bold text-slate-900 truncate">Next Right Step</h1>
               <p className="text-[11px] sm:text-xs md:text-sm text-slate-600 mt-0.5">
                 {isHumanConnected && activeTab === 'chat' ? (
                   <span className="flex items-center gap-1 text-green-600 font-medium">
@@ -826,9 +723,11 @@ export default function EnhancedPublicChat() {
                   className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm font-medium ${
                     conversationSaved
                       ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 active:bg-slate-300'
+                      : saveError
+                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200 active:bg-slate-300'
                   }`}
-                  title={conversationSaved ? 'Conversation saved' : 'Save this conversation'}
+                  title={conversationSaved ? 'Conversation saved' : saveError ? `Save failed: ${saveError}` : 'Save this conversation'}
                 >
                   {conversationSaved ? (
                     <Bookmark className="w-3.5 h-3.5 fill-current" />
@@ -894,6 +793,19 @@ export default function EnhancedPublicChat() {
                 Saved
               </button>
             )}
+            {hasDashboardAccess && !isGuest && (
+              <button
+                onClick={() => setActiveTab('dashboard')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-xs sm:text-sm font-medium border border-b-0 transition-colors ${
+                  activeTab === 'dashboard'
+                    ? 'bg-slate-50 text-blue-600 border-slate-200'
+                    : 'bg-white text-slate-500 border-transparent hover:text-slate-700'
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                Dashboard
+              </button>
+            )}
             {/* Sign out - far right */}
             <div className="flex-1" />
             <button
@@ -922,6 +834,13 @@ export default function EnhancedPublicChat() {
         </div>
       )}
 
+      {/* Dashboard tab */}
+      {activeTab === 'dashboard' && hasDashboardAccess && !isGuest && (
+        <div className="flex-1 overflow-hidden">
+          <PersonalDashboard />
+        </div>
+      )}
+
       {/* Chat tab */}
       {activeTab === 'chat' && (
         <>
@@ -942,7 +861,7 @@ export default function EnhancedPublicChat() {
                   >
                     {message.sender_type !== 'visitor' && (
                       <div className="text-[10px] sm:text-xs font-semibold text-slate-500 mb-0.5">
-                        {message.sender_type === 'admin' ? 'Brandon' : 'NRS Navigator'}
+                        {message.sender_type === 'admin' ? 'Brandon' : 'Recovery Navigator'}
                       </div>
                     )}
                     <p className="text-[13px] sm:text-sm md:text-[15px] leading-relaxed whitespace-pre-line">{message.content}</p>

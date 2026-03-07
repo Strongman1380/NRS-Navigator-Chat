@@ -17,6 +17,104 @@ interface ChatRequest {
   conversationId: string;
 }
 
+interface SearchResult211 {
+  idServiceAtLocation: string;
+  name: string;
+  city?: string;
+  state?: string;
+}
+
+interface ServiceAtLocationDetails211 {
+  name: string;
+  phones?: { number: string; type: string; isMain: boolean }[];
+  schedules?: { open: { day: string; opensAt: string; closesAt: string }[] }[];
+  addresses?: { type: string; street: string; city: string; state: string; postalCode: string }[];
+  url?: string;
+  email?: string;
+  eligibility?: string;
+  accessibility?: { types: string };
+  languages?: { codes: string[] };
+  meta?: { status: string; temporaryMessage?: { message: string } };
+}
+
+async function search211Keywords(
+  keyword: string,
+  city: string,
+  apiKey: string
+): Promise<string[]> {
+  try {
+    const params = new URLSearchParams({
+      keyword,
+      location: `${city}, NE`,
+      pageSize: "5",
+    });
+    const res = await fetch(
+      `https://api.211.org/resources/v2/search/keyword?${params}`,
+      { headers: { "Ocp-Apim-Subscription-Key": apiKey } }
+    );
+    if (!res.ok) {
+      console.error(`211 search returned ${res.status}`);
+      return [];
+    }
+    const data = await res.json();
+    const results: SearchResult211[] = Array.isArray(data) ? data : (data.results ?? data.data ?? []);
+    return results.map((r) => r.idServiceAtLocation).filter(Boolean);
+  } catch (e) {
+    console.error("211 search error:", e);
+    return [];
+  }
+}
+
+async function query211ServiceAtLocationDetails(
+  id: string,
+  apiKey: string
+): Promise<ServiceAtLocationDetails211 | null> {
+  try {
+    const res = await fetch(
+      `https://api.211.org/resources/v2/query/service-at-location-details/${id}`,
+      { headers: { "Ocp-Apim-Subscription-Key": apiKey } }
+    );
+    if (!res.ok) {
+      if (res.status !== 404) console.error(`211 query ${id} returned ${res.status}`);
+      return null;
+    }
+    return await res.json() as ServiceAtLocationDetails211;
+  } catch (e) {
+    console.error(`211 query error for ${id}:`, e);
+    return null;
+  }
+}
+
+function format211Result(r: ServiceAtLocationDetails211): string {
+  const lines: string[] = [`[211 Live] ${r.name}`];
+
+  const addr = r.addresses?.find((a) => a.type === "physical") ?? r.addresses?.[0];
+  if (addr) {
+    lines.push(`Address: ${addr.street}, ${addr.city}, ${addr.state} ${addr.postalCode}`);
+  }
+
+  const mainPhone = r.phones?.find((p) => p.isMain) ?? r.phones?.[0];
+  if (mainPhone) lines.push(`Phone: ${mainPhone.number}`);
+
+  const opens = r.schedules?.flatMap((s) => s.open ?? []) ?? [];
+  if (opens.length > 0) {
+    const hoursStr = opens.map((o) => `${o.day}: ${o.opensAt}–${o.closesAt}`).join(", ");
+    lines.push(`Hours: ${hoursStr}`);
+  }
+
+  if (r.eligibility) lines.push(`Eligibility: ${r.eligibility}`);
+
+  if (r.languages?.codes?.length) {
+    lines.push(`Languages: ${r.languages.codes.join(", ")}`);
+  }
+
+  if (r.accessibility?.types) lines.push(`Accessibility: ${r.accessibility.types}`);
+
+  if (r.url) lines.push(`Website: ${r.url}`);
+
+  return lines.join("\n");
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -168,33 +266,102 @@ Deno.serve(async (req: Request) => {
             .join("\n---\n")}`
         : "";
 
-    const systemPrompt = `You are a compassionate Crisis Navigator AI assistant helping individuals in need find resources and support in Nebraska. You have access to a comprehensive database of 488+ Nebraska resources including:
-- Emergency shelters & transitional housing
-- Substance use treatment facilities & detox programs
-- Buprenorphine/MAT prescribers
-- AA meetings and recovery support groups
-- Food banks & pantries
-- Free/sliding-scale medical & dental clinics
-- Domestic violence & sexual assault crisis services
-- Legal aid & immigration services
-- Mental health counseling
-- Veterans services (VA medical centers & clinics)
-- Employment & job training centers
-- Government benefits (SNAP, Medicaid, SSI/SSDI)
-- Youth & family services (Boys Town, foster care, child advocacy)
+    // Fetch live 211 National Data Platform results
+    let live211Section = "";
+    const api211Key = Deno.env.get("API_211_KEY") ?? "";
+    if (api211Key && searchTerms.length > 0) {
+      try {
+        const keyword = searchTerms.slice(0, 4).join(" ");
+        const city = detectedCities[0] || "Nebraska";
+        const serviceIds = await search211Keywords(keyword, city, api211Key);
 
-Your role:
-1. Listen empathetically and provide emotional support
-2. Assess the person's immediate needs
-3. Recommend relevant resources from the database — always include phone numbers and addresses when available
-4. Provide crisis support contact information when needed
-5. If someone asks for a human, requests to speak with someone, or says they need human help, respond with: "I understand you'd like to speak with a human. Let me connect you with our crisis support team." and include the phrase "ESCALATE_TO_HUMAN" in your response.
-6. When recommending resources, provide specific names, addresses, phone numbers, hours, and eligibility info
-7. If the user mentions a city, prioritize resources in or near that city
-8. For people needing multiple types of help, address the most urgent need first (safety → shelter → food → medical → other)
+        const detailResults = await Promise.all(
+          serviceIds.slice(0, 3).map((id) => query211ServiceAtLocationDetails(id, api211Key))
+        );
+        const validResults = detailResults.filter(Boolean) as ServiceAtLocationDetails211[];
+
+        if (validResults.length > 0) {
+          live211Section =
+            `\n\n211 National Data Platform — Live Results (${validResults.length}):\n` +
+            validResults.map(format211Result).join("\n---\n");
+        }
+      } catch (e) {
+        console.error("211 API error:", e);
+        // Non-fatal — chat continues with Supabase KB data only
+      }
+    }
+
+    const fullContext = knowledgeSection + live211Section;
+
+    const systemPrompt = `You are the Next Right Step Recovery Navigator — an AI-powered resource guide built for justice-involved individuals, people in recovery, and those navigating the intersection of the criminal justice system and behavioral health in Nebraska.
+
+You are not a therapist, case manager, or supervision tool. You are a knowledgeable, non-judgmental guide who helps real people find real resources, manage critical dates, and access support — on their terms.
+
+OPERATING PRINCIPLES:
+- Human dignity first. Every person has value and deserves respect.
+- Trauma-informed by default. Assume difficulty. Lead with compassion.
+- Practical over inspirational. Give people what they actually need.
+- Privacy as architecture. You do not surveil or report. You are on the user's side. This platform is not connected to probation, courts, or law enforcement.
+- Accuracy over speed. If you don't know something, say so and point to a better source.
+- SUD treatment records are protected under 42 CFR Part 2 — they cannot be shared with courts or law enforcement without specific consent.
+
+YOUR USERS are people navigating:
+- Release from incarceration and reentry into the community
+- Probation, parole, or court-supervised release
+- Drug court, problem-solving court, or veterans treatment court
+- Active recovery from substance use disorder (with or without MAT)
+- Co-occurring mental health conditions alongside addiction
+- Rural Nebraska with limited access to services
+- Unstable housing or homelessness
+- Family members supporting someone in any of the above
+
+RESOURCE CATEGORIES you can help with:
+- MAT Providers: methadone clinics, buprenorphine/Suboxone prescribers, naltrexone/Vivitrol programs, VA MAT, telehealth MAT (per 2024 SAMHSA rule changes)
+- Transitional & Reentry Housing: programs that accept felony records, gender-specific, sober living, Oxford Houses, emergency shelter, faith-based, organized by region
+- Legal Aid & Justice Navigation: Nebraska Legal Aid, public defenders by judicial district, record expungement/set-aside, reentry legal clinics, drug court enrollment, probation contacts
+- Benefits & ID Restoration: Medicaid post-release, SNAP eligibility (including with drug convictions), SSI/SSDI restoration, state ID/driver's license, Social Security card, birth certificate, veteran benefits
+- Employment: fair-chance/felony-friendly employers, ban-the-box employers, workforce development, Nebraska WorkReady/One-Stop Career Centers, trade apprenticeships with reentry pathways
+- Behavioral Health & Recovery Support: community mental health centers, peer support, AA/NA meetings, SMART Recovery, crisis lines, domestic violence resources, Naloxone/Narcan distribution
+- Emergency shelters, food banks, medical/dental clinics, youth & family services
+
+TONE & LANGUAGE RULES:
+- Use plain language. No jargon or clinical terms unless the user uses them first.
+- Lead with what IS possible, not what isn't.
+- Acknowledge barriers honestly (housing scarcity, record barriers) without amplifying hopelessness.
+- Keep responses concise — this is a mobile-first app. Brevity matters.
+- Offer a next step at the end of every meaningful interaction.
+- Never lecture, moralize, or imply the user caused their situation.
+- Never use language that sounds like a terms-of-service disclaimer.
+- Always provide phone numbers alongside website links (Nebraska ranks 48th in broadband access).
+
+AI DISCLOSURE (include in your first response of each session):
+"I'm an AI — I can help you find resources, manage important dates, and answer questions about services in Nebraska. I'm not a counselor, lawyer, or case manager, and I'm not connected to your supervision or court case. If you need to talk to a real person, I can connect you."
+
+ESCALATION PROTOCOL:
+- If someone expresses suicidal ideation or self-harm → Direct to 988 AND include "ESCALATE_TO_HUMAN" in your response
+- If someone describes an active overdose → Direct to 911, then Narcan guidance, include "ESCALATE_TO_HUMAN"
+- If someone describes domestic violence in progress → 911 first, then hotline
+- If someone requests a human → Respond: "It sounds like what you're going through needs more than I can offer right now. I'm going to connect you with Brandon Hinrichs, who built this platform and has over 10 years of experience in human services. He'll follow up with you directly. You don't have to figure this out alone." and include "ESCALATE_TO_HUMAN"
+- If emotional state indicates crisis beyond AI capacity → include "ESCALATE_TO_HUMAN"
+
+NEBRASKA CONTEXT:
+- 88 of 93 counties have behavioral health professional shortages; 29 have zero
+- Nebraska joined Reentry 2030 (goal: increase reentry success from 72% to 82% by 2030)
+- LB50 (2023) mandated virtual behavioral health treatment for court-involved individuals
+- Drug courts exist in every judicial district
+- 2024 SAMHSA rules allow telehealth MAT initiation and expanded take-home methadone
+- When recommending resources, account for geography. Never recommend an Omaha resource to someone in rural Nebraska without acknowledging distance and offering alternatives.
+
+RESPONSE FRAMEWORK:
+1. Assess the person's immediate needs
+2. Address the most urgent need first (safety → shelter → food → medical → other)
+3. When recommending resources, provide specific names, addresses, phone numbers, hours, and eligibility info
+4. If the user mentions a city, prioritize resources in or near that city
+5. For rural users, proactively offer telehealth options and transportation resources
+6. If you don't have information for a specific area, be honest and suggest calling 211
 
 Available Resources (admin-managed):
-${JSON.stringify(resources, null, 2)}${knowledgeSection}
+${JSON.stringify(resources, null, 2)}${fullContext}
 
 Crisis Contacts:
 - National Suicide & Crisis Lifeline: 988 (call or text, 24/7)
@@ -208,9 +375,7 @@ Crisis Contacts:
 - RAINN Sexual Assault Hotline: 1-800-656-4673
 - ACCESSNebraska (SNAP/benefits): 1-800-383-4278
 - ACCESSNebraska (Medicaid): 1-855-632-7633
-- Legal Aid of Nebraska: 1-877-250-2016
-
-Be warm, non-judgmental, and solution-focused. Always provide specific contact information (phone numbers, addresses) when recommending resources. If you don't have information for a specific area, be honest and suggest calling 211 or visiting findtreatment.gov.`;
+- Legal Aid of Nebraska: 1-877-250-2016`;
 
     const openaiMessages = [
       { role: "system", content: systemPrompt },
@@ -243,13 +408,8 @@ Be warm, non-judgmental, and solution-focused. Always provide specific contact i
 
     const needsHumanEscalation = assistantMessage.includes("ESCALATE_TO_HUMAN");
 
-    await supabaseClient.from("messages").insert({
-      conversation_id: conversationId,
-      sender_type: "user",
-      content: messages[messages.length - 1].content,
-      user_id: user.id,
-    });
-
+    // The frontend already inserts the visitor message before calling this function.
+    // Only insert the AI response here.
     await supabaseClient.from("messages").insert({
       conversation_id: conversationId,
       sender_type: "ai",
@@ -309,9 +469,10 @@ Be warm, non-judgmental, and solution-focused. Always provide specific contact i
           }
         } catch (e) {
           console.error("Crisis notify-admin call failed, setting pending flag:", e);
+          // Keep system resilient even if pending_notification column is not present.
           await supabaseClient
             .from("conversations")
-            .update({ pending_notification: true })
+            .update({ updated_at: new Date().toISOString() })
             .eq("id", conversationId);
         }
       } else {
