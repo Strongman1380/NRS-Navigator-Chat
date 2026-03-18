@@ -377,34 +377,30 @@ Crisis Contacts:
 - ACCESSNebraska (Medicaid): 1-855-632-7633
 - Legal Aid of Nebraska: 1-877-250-2016`;
 
-    const openaiMessages = [
-      { role: "system", content: systemPrompt },
-      ...messages,
-    ];
-
-    const openaiResponse = await fetch(
-      "https://api.openai.com/v1/chat/completions",
+    const claudeResponse = await fetch(
+      "https://api.anthropic.com/v1/messages",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${Deno.env.get("OPENAI_API_KEY")}`,
+          "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!,
+          "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: openaiMessages,
-          temperature: 0.7,
+          model: "claude-haiku-4-5-20251001",
           max_tokens: 1000,
+          system: systemPrompt,
+          messages,
         }),
       }
     );
 
-    if (!openaiResponse.ok) {
-      throw new Error(`OpenAI API error: ${openaiResponse.statusText}`);
+    if (!claudeResponse.ok) {
+      throw new Error(`Claude API error: ${claudeResponse.statusText}`);
     }
 
-    const openaiData = await openaiResponse.json();
-    const assistantMessage = openaiData.choices[0].message.content;
+    const claudeData = await claudeResponse.json();
+    const assistantMessage = claudeData.content[0].text;
 
     const needsHumanEscalation = assistantMessage.includes("ESCALATE_TO_HUMAN");
 
