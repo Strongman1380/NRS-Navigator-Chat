@@ -55,18 +55,17 @@ export default function EnhancedPublicChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [suggestedResources] = useState<Resource[]>([]);
   const [isHumanConnected, setIsHumanConnected] = useState(false);
+  const [showEmergencyButtons, setShowEmergencyButtons] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('chat');
   const [conversationSaved, setConversationSaved] = useState(false);
   const [savingConversation, setSavingConversation] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isAdminTyping, setIsAdminTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const escalationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingBroadcastRef = useRef<number>(0);
   const isHumanConnectedRef = useRef(false);
-  const humanEscalationSentRef = useRef(false);
 
   const handleConsent = async () => {
     const consentAcceptedAt = new Date().toISOString();
@@ -106,7 +105,6 @@ export default function EnhancedPublicChat() {
         typingChannelRef.current = null;
       }
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      if (escalationTimerRef.current) clearTimeout(escalationTimerRef.current);
     };
   }, [conversationId]);
 
@@ -273,45 +271,6 @@ export default function EnhancedPublicChat() {
     }
   };
 
-  const startEscalationTimer = () => {
-    // Don't start if human already connected or escalation already sent
-    if (isHumanConnectedRef.current || humanEscalationSentRef.current) return;
-
-    // Clear existing timer
-    if (escalationTimerRef.current) clearTimeout(escalationTimerRef.current);
-
-    escalationTimerRef.current = setTimeout(async () => {
-      // Re-check refs inside the callback to avoid stale closure
-      if (isHumanConnectedRef.current || humanEscalationSentRef.current) return;
-
-      // Double-check: has a human responded in the meantime?
-      const { data: convo } = await supabase
-        .from('conversations')
-        .select('assigned_to_human')
-        .eq('id', conversationId)
-        .single();
-
-      if (convo?.assigned_to_human) return;
-
-      // Mark ref immediately to prevent duplicate escalations from concurrent timers
-      humanEscalationSentRef.current = true;
-
-      // Insert first to get the real DB id — avoids temp-id / realtime duplicate
-      const { data: escalationMsg } = await supabase.from('messages').insert({
-        conversation_id: conversationId,
-        sender_type: 'ai',
-        content: "I'm reaching out to a member of our support team right now. They'll be with you shortly. In the meantime, feel free to keep sharing what you need help with — you don't have to figure this out alone.",
-      }).select().single();
-
-      if (escalationMsg) addMessageIfNew(escalationMsg);
-
-      // Flag the conversation so admin sees it
-      await supabase.from('conversations').update({
-        needs_human_response: true,
-        updated_at: new Date().toISOString(),
-      }).eq('id', conversationId);
-    }, 60_000); // 1 minute
-  };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -359,8 +318,6 @@ export default function EnhancedPublicChat() {
     await generateSmartAIResponse(messageContent);
     setIsLoading(false);
 
-    // Start (or restart) the 1-minute escalation timer
-    startEscalationTimer();
   };
 
   const isHumanRequest = (text: string): boolean => {
@@ -391,7 +348,7 @@ export default function EnhancedPublicChat() {
 
     // Deterministic crisis trigger — fast, no GPT round-trip needed.
     if (isCrisisMessage(userMessage)) {
-      const crisisMessage = 'I hear you, and what you\'re feeling matters. Please call or text 988 right now — trained counselors are available 24/7. If you\'re in immediate danger, call 911. I\'m also connecting you with a member of our support team, who will follow up with you directly. You don\'t have to figure this out alone.';
+      const crisisMessage = `I hear you, and what you're going through matters.\n\n🆘 **If this is a life-threatening emergency, call 911 now.**\n\n📞 **988 Suicide & Crisis Lifeline** — call or text 988, available 24/7\n💬 **Crisis Text Line** — text START to 741741\n🩺 **If someone has overdosed:** Call 911, give Narcan if available (spray in one nostril, repeat after 2–3 min if no response), lay them on their side.\n\nI'm connecting you with a member of our support team right now — they'll follow up with you directly. You don't have to figure this out alone.`;
 
       const { data: aiMsg } = await supabase.from('messages').insert({
         conversation_id: conversationId,
@@ -416,6 +373,8 @@ export default function EnhancedPublicChat() {
         metadata: { timestamp: new Date().toISOString(), source: 'runtime_crisis_trigger' },
       });
 
+      setShowEmergencyButtons(true);
+      startFollowUpTimer();
       return;
     }
 
@@ -443,6 +402,9 @@ export default function EnhancedPublicChat() {
         conversation_id: conversationId,
         metadata: { timestamp: new Date().toISOString(), source: 'chat_request' },
       });
+
+      setShowEmergencyButtons(true);
+      startFollowUpTimer();
       return;
     }
 
@@ -910,6 +872,39 @@ export default function EnhancedPublicChat() {
               <div ref={messagesEndRef} />
             </div>
           </div>
+
+          {/* Emergency quick-dial panel — shown after crisis or escalation */}
+          {showEmergencyButtons && (
+            <div className="bg-red-50 border-t border-red-200 px-3 py-2">
+              <p className="text-[11px] font-semibold text-red-700 mb-1.5 uppercase tracking-wide">Emergency Resources — Tap to Call</p>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { label: '🚨 911', number: '911' },
+                  { label: '🧠 988 Crisis', number: '988' },
+                  { label: '📲 *211 NE', number: '*211' },
+                  { label: '💊 SAMHSA', number: '18006624357' },
+                  { label: '🏠 DV Hotline', number: '18007997233' },
+                  { label: '📞 NRS Support', number: '4027592210' },
+                ].map(({ label, number }) => (
+                  <a
+                    key={number}
+                    href={`tel:${number}`}
+                    className="inline-flex items-center px-2.5 py-1 bg-white border border-red-300 text-red-700 rounded-full text-[12px] font-medium shadow-sm active:bg-red-100"
+                  >
+                    {label}
+                  </a>
+                ))}
+                <a
+                  href={`https://t.me/${import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'Nrsnavigationbot'}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-2.5 py-1 bg-white border border-blue-300 text-blue-700 rounded-full text-[12px] font-medium shadow-sm active:bg-blue-100"
+                >
+                  💬 Telegram
+                </a>
+              </div>
+            </div>
+          )}
 
           {/* Input area - safe area bottom for home indicator */}
           <div className="bg-white border-t border-slate-200 shadow-lg safe-bottom">

@@ -147,22 +147,16 @@ Deno.serve(async (req: Request) => {
 
     const { messages, conversationId }: ChatRequest = await req.json();
 
-    // Fetch admin-managed resources
-    const { data: resources } = await supabaseClient
-      .from("resources")
-      .select("*")
-      .eq("is_active", true);
-
-    // Extract search terms from the user's last message for knowledge base lookup
+    // Extract search context from messages before kicking off DB queries
     const lastUserMessage = messages
       .filter((m) => m.role === "user")
       .pop()?.content?.toLowerCase() ?? "";
 
-    // Extract city names from the conversation for location filtering
     const allUserText = messages
       .filter((m) => m.role === "user")
       .map((m) => m.content)
       .join(" ");
+
     const cityPattern =
       /\b(omaha|lincoln|bellevue|grand island|kearney|hastings|north platte|fremont|norfolk|columbus|papillion|la vista|ralston|gretna|scottsbluff|south sioux city|beatrice|lexington|york|seward|plattsmouth|nebraska city|wayne|chadron|sidney|alliance|mccook|broken bow|valentine|ogallala|holdrege|central city)\b/gi;
     const detectedCities = [
@@ -173,125 +167,103 @@ Deno.serve(async (req: Request) => {
       ),
     ];
 
-    // Build knowledge base query — use full-text search if we have keywords
-    let knowledgeResults: any[] = [];
     const searchTerms = lastUserMessage
       .replace(/[^\w\s]/g, "")
       .split(/\s+/)
       .filter((w: string) => w.length > 3)
-      .slice(0, 8);
+      .slice(0, 6);
 
-    if (searchTerms.length > 0 || detectedCities.length > 0) {
-      // Try full-text search first
-      if (searchTerms.length > 0) {
-        const tsQuery = searchTerms.join(" | ");
-        const { data: ftsResults } = await supabaseClient
+    // Determine which categories match the user's message
+    const categoryQueries: Array<{ pattern: RegExp; categories: string[] }> = [
+      { pattern: /\b(shelter|homeless|housing|sleep|place to stay|warm|cold|unsheltered)\b/i, categories: ["shelter"] },
+      { pattern: /\b(food|hungry|eat|meal|pantry|snap|groceries|starving)\b/i, categories: ["food"] },
+      { pattern: /\b(lawyer|legal|court|evict|custody|rights|arrest|immigration|visa|asylum)\b/i, categories: ["legal"] },
+      { pattern: /\b(doctor|clinic|medical|health|dentist|dental|pharmacy|pregnant|prenatal)\b/i, categories: ["medical"] },
+      { pattern: /\b(domestic violence|abuse|stalking|trafficking|assault|dv|batter)\b/i, categories: ["crisis"] },
+      { pattern: /\b(job|employ|work|career|resume|hire|unemployment|labor|vocational)\b/i, categories: ["employment"] },
+      { pattern: /\b(medicaid|snap|benefits|ssi|ssdi|social security|tanf|childcare|access nebraska)\b/i, categories: ["government"] },
+      { pattern: /\b(youth|child|kid|teen|adolescent|boys town|foster|adopt)\b/i, categories: ["youth"] },
+      { pattern: /\b(veteran|va |military|service member|armed forces)\b/i, categories: ["medical", "crisis"] },
+    ];
+    const matchedCategories = [
+      ...new Set(
+        categoryQueries
+          .filter(({ pattern }) => pattern.test(lastUserMessage))
+          .flatMap(({ categories }) => categories)
+      ),
+    ];
+    const wantsMeetings = /\b(aa|meeting|recovery|sober|12.?step|alcoholic)\b/i.test(lastUserMessage);
+
+    // Build all DB queries and run them in parallel
+    const dbPromises: Promise<any>[] = [
+      supabaseClient.from("resources").select("name, category, description, phone, address, website").eq("is_active", true).limit(30),
+    ];
+
+    if (searchTerms.length > 0) {
+      dbPromises.push(
+        supabaseClient
           .from("knowledge_base")
           .select("title, content, category, city, phone, website")
           .eq("is_active", true)
-          .textSearch("fts", tsQuery)
-          .limit(20);
-        if (ftsResults) knowledgeResults.push(...ftsResults);
-      }
-
-      // Also search by detected city
-      if (detectedCities.length > 0) {
-        const { data: cityResults } = await supabaseClient
+          .textSearch("fts", searchTerms.join(" | "))
+          .limit(12)
+      );
+    }
+    if (detectedCities.length > 0) {
+      dbPromises.push(
+        supabaseClient
           .from("knowledge_base")
           .select("title, content, category, city, phone, website")
           .eq("is_active", true)
           .in("city", detectedCities)
-          .limit(20);
-        if (cityResults) {
-          // Deduplicate
-          const existingTitles = new Set(knowledgeResults.map((r: any) => r.title));
-          for (const r of cityResults) {
-            if (!existingTitles.has(r.title)) knowledgeResults.push(r);
-          }
-        }
-      }
-
-      // If asking about AA/meetings/recovery, also pull meeting data
-      if (/\b(aa|meeting|recovery|sober|12.?step|alcoholic)\b/i.test(lastUserMessage)) {
-        const { data: meetingResults } = await supabaseClient
+          .limit(12)
+      );
+    }
+    if (matchedCategories.length > 0) {
+      dbPromises.push(
+        supabaseClient
+          .from("knowledge_base")
+          .select("title, content, category, city, phone, website")
+          .eq("is_active", true)
+          .in("category", matchedCategories)
+          .limit(12)
+      );
+    }
+    if (wantsMeetings) {
+      dbPromises.push(
+        supabaseClient
           .from("knowledge_base")
           .select("title, content, category, city, phone, website")
           .eq("is_active", true)
           .eq("category", "aa_meeting")
-          .limit(15);
-        if (meetingResults) {
-          const existingTitles = new Set(knowledgeResults.map((r: any) => r.title));
-          for (const r of meetingResults) {
-            if (!existingTitles.has(r.title)) knowledgeResults.push(r);
-          }
-        }
-      }
+          .limit(10)
+      );
+    }
 
-      // Category-specific queries for new resource types
-      const categoryQueries: Array<{ pattern: RegExp; categories: string[] }> = [
-        { pattern: /\b(shelter|homeless|housing|sleep|place to stay|warm|cold|unsheltered)\b/i, categories: ["shelter"] },
-        { pattern: /\b(food|hungry|eat|meal|pantry|snap|groceries|starving)\b/i, categories: ["food"] },
-        { pattern: /\b(lawyer|legal|court|evict|custody|rights|arrest|immigration|visa|asylum)\b/i, categories: ["legal"] },
-        { pattern: /\b(doctor|clinic|medical|health|dentist|dental|pharmacy|pregnant|prenatal)\b/i, categories: ["medical"] },
-        { pattern: /\b(domestic violence|abuse|stalking|trafficking|assault|dv|batter)\b/i, categories: ["crisis"] },
-        { pattern: /\b(job|employ|work|career|resume|hire|unemployment|labor|vocational)\b/i, categories: ["employment"] },
-        { pattern: /\b(medicaid|snap|benefits|ssi|ssdi|social security|tanf|childcare|access nebraska)\b/i, categories: ["government"] },
-        { pattern: /\b(youth|child|kid|teen|adolescent|boys town|foster|adopt)\b/i, categories: ["youth"] },
-        { pattern: /\b(veteran|va |military|service member|armed forces)\b/i, categories: ["medical", "crisis"] },
-      ];
+    const dbResults = await Promise.all(dbPromises);
+    const resources = dbResults[0]?.data ?? [];
+    const kbResultSets = dbResults.slice(1).map((r: any) => r?.data ?? []);
 
-      for (const { pattern, categories } of categoryQueries) {
-        if (pattern.test(lastUserMessage)) {
-          const { data: catResults } = await supabaseClient
-            .from("knowledge_base")
-            .select("title, content, category, city, phone, website")
-            .eq("is_active", true)
-            .in("category", categories)
-            .limit(15);
-          if (catResults) {
-            const existingTitles = new Set(knowledgeResults.map((r: any) => r.title));
-            for (const r of catResults) {
-              if (!existingTitles.has(r.title)) knowledgeResults.push(r);
-            }
-          }
+    // Deduplicate knowledge base results across all queries
+    const seenTitles = new Set<string>();
+    const knowledgeResults: any[] = [];
+    for (const set of kbResultSets) {
+      for (const r of set) {
+        if (!seenTitles.has(r.title)) {
+          seenTitles.add(r.title);
+          knowledgeResults.push(r);
         }
       }
     }
 
-    // Format knowledge base results for the prompt
     const knowledgeSection =
       knowledgeResults.length > 0
-        ? `\n\nNebraska Resource Database (${knowledgeResults.length} matches — shelters, treatment, food, medical, legal, crisis, AA meetings, prescribers, employment, government services):\n${knowledgeResults
+        ? `\n\nNebraska Resource Database (${knowledgeResults.length} matches):\n${knowledgeResults
             .map((r: any) => r.content)
             .join("\n---\n")}`
         : "";
 
-    // Fetch live 211 National Data Platform results
-    let live211Section = "";
-    const api211Key = Deno.env.get("API_211_KEY") ?? "";
-    if (api211Key && searchTerms.length > 0) {
-      try {
-        const keyword = searchTerms.slice(0, 4).join(" ");
-        const city = detectedCities[0] || "Nebraska";
-        const serviceIds = await search211Keywords(keyword, city, api211Key);
-
-        const detailResults = await Promise.all(
-          serviceIds.slice(0, 3).map((id) => query211ServiceAtLocationDetails(id, api211Key))
-        );
-        const validResults = detailResults.filter(Boolean) as ServiceAtLocationDetails211[];
-
-        if (validResults.length > 0) {
-          live211Section =
-            `\n\n211 National Data Platform — Live Results (${validResults.length}):\n` +
-            validResults.map(format211Result).join("\n---\n");
-        }
-      } catch (e) {
-        console.error("211 API error:", e);
-        // Non-fatal — chat continues with Supabase KB data only
-      }
-    }
-
-    const fullContext = knowledgeSection + live211Section;
+    const fullContext = knowledgeSection;
 
     const systemPrompt = `You are the Next Right Step Recovery Navigator — an AI-powered resource guide built for justice-involved individuals, people in recovery, and those navigating the intersection of the criminal justice system and behavioral health in Nebraska.
 
@@ -337,12 +309,13 @@ TONE & LANGUAGE RULES:
 AI DISCLOSURE (include in your first response of each session):
 "I'm an AI — I can help you find resources, manage important dates, and answer questions about services in Nebraska. I'm not a counselor, lawyer, or case manager, and I'm not connected to your supervision or court case. If you need to talk to a real person, I can connect you."
 
-ESCALATION PROTOCOL:
-- If someone expresses suicidal ideation or self-harm → Direct to 988 AND include "ESCALATE_TO_HUMAN" in your response
-- If someone describes an active overdose → Direct to 911, then Narcan guidance, include "ESCALATE_TO_HUMAN"
-- If someone describes domestic violence in progress → 911 first, then hotline
-- If someone requests a human → Respond: "It sounds like what you're going through needs more than I can offer right now. I'm going to connect you with Brandon Hinrichs, who built this platform and has over 10 years of experience in human services. He'll follow up with you directly. You don't have to figure this out alone." and include "ESCALATE_TO_HUMAN"
-- If emotional state indicates crisis beyond AI capacity → include "ESCALATE_TO_HUMAN"
+ESCALATION PROTOCOL — only escalate in these specific situations:
+- Explicit suicidal ideation or active self-harm plan → Direct to 988 AND include "ESCALATE_TO_HUMAN"
+- Active overdose in progress → Direct to 911, give Narcan guidance, include "ESCALATE_TO_HUMAN"
+- Active domestic violence emergency (person in immediate danger right now) → 911 first, then hotline, include "ESCALATE_TO_HUMAN"
+- User explicitly asks to speak with a human → include "ESCALATE_TO_HUMAN"
+
+DO NOT escalate for: general emotional distress, feeling overwhelmed, frustration, sadness, grief, stress, past trauma, or any situation where you can provide helpful resources or information. In those cases, respond with empathy AND useful resources. Your default is to help, not hand off.
 
 NEBRASKA CONTEXT:
 - 88 of 93 counties have behavioral health professional shortages; 29 have zero
@@ -377,6 +350,11 @@ Crisis Contacts:
 - ACCESSNebraska (Medicaid): 1-855-632-7633
 - Legal Aid of Nebraska: 1-877-250-2016`;
 
+    // Anthropic only accepts "user" and "assistant" roles in the messages array
+    const claudeMessages = messages.filter(
+      (m) => m.role === "user" || m.role === "assistant"
+    );
+
     const claudeResponse = await fetch(
       "https://api.anthropic.com/v1/messages",
       {
@@ -390,13 +368,15 @@ Crisis Contacts:
           model: "claude-haiku-4-5-20251001",
           max_tokens: 1000,
           system: systemPrompt,
-          messages,
+          messages: claudeMessages,
         }),
       }
     );
 
     if (!claudeResponse.ok) {
-      throw new Error(`Claude API error: ${claudeResponse.statusText}`);
+      const errBody = await claudeResponse.text();
+      console.error("Claude API error body:", errBody);
+      throw new Error(`Claude API error ${claudeResponse.status}: ${errBody}`);
     }
 
     const claudeData = await claudeResponse.json();
