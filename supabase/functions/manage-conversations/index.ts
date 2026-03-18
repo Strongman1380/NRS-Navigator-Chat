@@ -86,10 +86,19 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "delete") {
-      const { error: rpcError } = await adminClient.rpc("delete_conversations_atomic", {
-        conversation_ids: ids,
-      });
-      if (rpcError) throw rpcError;
+      // Delete messages first (safety net for any non-cascade setups),
+      // then delete conversations — cascade handles admin_notes, saved_conversations, etc.
+      const { error: msgError } = await adminClient
+        .from("messages")
+        .delete()
+        .in("conversation_id", ids);
+      if (msgError) throw msgError;
+
+      const { error: convoError } = await adminClient
+        .from("conversations")
+        .delete()
+        .in("id", ids);
+      if (convoError) throw convoError;
 
       return new Response(JSON.stringify({ success: true, deleted: ids.length }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
