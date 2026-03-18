@@ -16,3 +16,8 @@ ALTER TABLE conversations
 
 ALTER TABLE conversations
   ADD COLUMN IF NOT EXISTS risks_acknowledged boolean DEFAULT false;
+
+-- Ensure that when terms_accepted is true, timestamp and version are always present
+ALTER TABLE conversations
+  ADD CONSTRAINT chk_conversations_terms_consistency
+  CHECK ((terms_accepted IS NOT TRUE) OR (terms_accepted_at IS NOT NULL AND terms_version IS NOT NULL));

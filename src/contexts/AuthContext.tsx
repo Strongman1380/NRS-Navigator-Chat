@@ -16,9 +16,11 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signInAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
   isAdmin: boolean;
+  hasDashboardAccess: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -75,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .insert({
               id: currentUser.id,
               email: currentUser.email!,
-              full_name: currentUser.email === 'bhinrichs1380@gmail.com' ? 'Brandon Hinrichs' : null,
+              full_name: null,
               role: currentUser.email === 'bhinrichs1380@gmail.com' ? 'admin' : 'user',
             })
             .select()
@@ -128,6 +130,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   }
 
+  async function signInWithGoogle() {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/`,
+      },
+    });
+    if (error) throw error;
+  }
+
   async function signInAsGuest() {
     const { error } = await supabase.auth.signInAnonymously();
     if (error) throw error;
@@ -138,6 +150,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   }
 
+  const isAdmin = profile?.role === 'admin';
+  const hasDashboardAccess = !!profile;
+
   const value = {
     user,
     profile,
@@ -145,9 +160,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     signUp,
     signIn,
+    signInWithGoogle,
     signInAsGuest,
     signOut,
-    isAdmin: profile?.role === 'admin',
+    isAdmin: !!isAdmin,
+    hasDashboardAccess,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

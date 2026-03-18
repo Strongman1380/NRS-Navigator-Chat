@@ -26,6 +26,7 @@ export default function SavedConversations() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [messageLoadError, setMessageLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) loadSaved();
@@ -47,23 +48,33 @@ export default function SavedConversations() {
       return;
     }
 
-    // Load preview for each conversation
-    const enriched: SavedConversation[] = [];
-    for (const item of data || []) {
-      const { data: msgs, count } = await supabase
-        .from('messages')
-        .select('content', { count: 'exact' })
-        .eq('conversation_id', item.conversation_id)
-        .eq('sender_type', 'visitor')
-        .order('created_at', { ascending: false })
-        .limit(1);
+    // Load preview for each conversation in parallel
+    const enriched = await Promise.all(
+      (data || []).map(async (item) => {
+        try {
+          const { data: msgs, count, error: msgError } = await supabase
+            .from('messages')
+            .select('content', { count: 'exact' })
+            .eq('conversation_id', item.conversation_id)
+            .eq('sender_type', 'visitor')
+            .order('created_at', { ascending: false })
+            .limit(1);
 
-      enriched.push({
-        ...item,
-        message_preview: msgs?.[0]?.content || 'No messages',
-        message_count: count || 0,
-      });
-    }
+          if (msgError) {
+            console.error(`Error loading preview for ${item.conversation_id}:`, msgError);
+          }
+
+          return {
+            ...item,
+            message_preview: msgs?.[0]?.content || 'No messages',
+            message_count: count || 0,
+          };
+        } catch (err) {
+          console.error(`Error loading preview for ${item.conversation_id}:`, err);
+          return { ...item, message_preview: 'No messages', message_count: 0 };
+        }
+      })
+    );
 
     setSaved(enriched);
     setLoading(false);
@@ -72,27 +83,39 @@ export default function SavedConversations() {
   const viewConversation = async (conversationId: string) => {
     setSelectedId(conversationId);
     setLoadingMessages(true);
+    setMessageLoadError(null);
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('messages')
       .select('id, sender_type, content, created_at')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
 
-    setMessages(data || []);
+    if (error) {
+      console.error('Error loading messages:', error);
+      setMessageLoadError('Unable to load saved conversations');
+      setMessages([]);
+    } else {
+      setMessages(data || []);
+    }
     setLoadingMessages(false);
   };
 
   const removeSaved = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    await supabase.from('saved_conversations').delete().eq('id', id);
+    // Capture the item before any state mutation
+    const removed = saved.find(s => s.id === id);
+
+    const { error } = await supabase.from('saved_conversations').delete().eq('id', id);
+    if (error) {
+      console.error('Error removing saved conversation:', error);
+      return;
+    }
+
     setSaved(prev => prev.filter(s => s.id !== id));
-    if (selectedId) {
-      const removed = saved.find(s => s.id === id);
-      if (removed && removed.conversation_id === selectedId) {
-        setSelectedId(null);
-        setMessages([]);
-      }
+    if (selectedId && removed && removed.conversation_id === selectedId) {
+      setSelectedId(null);
+      setMessages([]);
     }
   };
 
@@ -128,6 +151,8 @@ export default function SavedConversations() {
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
             </div>
+          ) : messageLoadError ? (
+            <p className="text-center text-red-500 text-sm py-8">Failed to load messages: {messageLoadError}</p>
           ) : messages.length === 0 ? (
             <p className="text-center text-slate-500 text-sm py-8">No messages in this conversation</p>
           ) : (
@@ -145,7 +170,7 @@ export default function SavedConversations() {
                 >
                   {msg.sender_type !== 'visitor' && (
                     <div className="text-[10px] font-semibold text-slate-500 mb-0.5">
-                      {msg.sender_type === 'admin' ? 'Brandon' : 'NRS Navigator'}
+                      {msg.sender_type === 'admin' ? 'Admin' : 'NRS Navigator'}
                     </div>
                   )}
                   <p className="text-[13px] sm:text-sm leading-relaxed whitespace-pre-line">{msg.content}</p>
@@ -190,10 +215,13 @@ export default function SavedConversations() {
         ) : (
           <div className="divide-y divide-slate-100">
             {saved.map((item) => (
-              <button
+              <div
                 key={item.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => viewConversation(item.conversation_id)}
-                className="w-full text-left px-3 sm:px-4 py-3 hover:bg-slate-50 transition-colors"
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); viewConversation(item.conversation_id); } }}
+                className="w-full text-left px-3 sm:px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 <div className="flex items-start gap-3">
                   <div className="flex-1 min-w-0">
@@ -218,7 +246,7 @@ export default function SavedConversations() {
                     <ChevronRight className="w-4 h-4 text-slate-400" />
                   </div>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}

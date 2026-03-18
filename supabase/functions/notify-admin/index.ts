@@ -3,8 +3,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 /**
  * notify-admin Edge Function
  *
- * Sends email (Resend) and/or SMS (Twilio) to the admin when a
- * conversation is escalated or a user requests human assistance.
+ * Sends email (Resend), SMS (Twilio), Telegram message, and Web Push
+ * to the admin when a conversation is escalated or a user requests
+ * human assistance. All channels are optional — at least one must be
+ * configured.
  *
  * Required secrets (set via `supabase secrets set`):
  *   ADMIN_EMAIL          - Email to receive alerts
@@ -13,6 +15,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
  *   TWILIO_ACCOUNT_SID   - Twilio Account SID
  *   TWILIO_AUTH_TOKEN    - Twilio Auth Token
  *   TWILIO_FROM_NUMBER   - Twilio phone number to send from
+ *   TELEGRAM_BOT_TOKEN   - Token from @BotFather (optional)
+ *   TELEGRAM_CHAT_ID     - Your Telegram chat/user ID (optional)
+ *   VAPID_PUBLIC_KEY     - VAPID public key for web push (optional)
+ *   SUPABASE_SERVICE_ROLE_KEY - For calling send-web-push function
  */
 
 function escapeHtml(str: string): string {
@@ -67,11 +73,15 @@ Deno.serve(async (req: Request) => {
     const twilioSid = Deno.env.get("TWILIO_ACCOUNT_SID");
     const twilioToken = Deno.env.get("TWILIO_AUTH_TOKEN");
     const twilioFrom = Deno.env.get("TWILIO_FROM_NUMBER");
+    const telegramToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
+    const telegramChatId = Deno.env.get("TELEGRAM_CHAT_ID");
+    const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
 
     // If no notification channels are configured, return early
     const hasEmail = adminEmail && resendKey;
     const hasSms = adminPhone && twilioSid && twilioToken && twilioFrom;
-    if (!hasEmail && !hasSms) {
+    const hasTelegram = telegramToken && telegramChatId;
+    if (!hasEmail && !hasSms && !hasTelegram) {
       return new Response(
         JSON.stringify({ error: "No notification channels configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -103,7 +113,7 @@ Deno.serve(async (req: Request) => {
       .filter(Boolean)
       .join("\n");
 
-    const results: { email?: string; sms?: string } = {};
+    const results: { email?: string; sms?: string; telegram?: string; webPush?: string } = {};
 
     // ─── Send Email via Resend ─────────────────────────────────
     if (adminEmail && resendKey) {
@@ -199,7 +209,71 @@ Deno.serve(async (req: Request) => {
       results.sms = "skipped (missing Twilio credentials)";
     }
 
-    console.log(`Notification for #${shortId}: email=${results.email}, sms=${results.sms}`);
+    // ─── Send Telegram message ─────────────────────────────────
+    if (hasTelegram) {
+      try {
+        const isCrisisEmoji = reason === "crisis_detected" ? "🚨" : reason === "urgent_escalation" ? "⚠️" : "💬";
+        const telegramText = [
+          `${isCrisisEmoji} <b>${reasonLabel}</b>`,
+          `Conv: #${shortId}${visitorName ? ` (${visitorName})` : ""}`,
+          priority ? `Priority: ${priority.toUpperCase()}` : "",
+          preview ? `\n"${preview.slice(0, 200)}${preview.length > 200 ? "..." : ""}"` : "",
+          `\nTime: ${timestamp} CT`,
+          `Open dashboard to respond.`,
+        ]
+          .filter(Boolean)
+          .join("\n");
+
+        const tgRes = await fetch(
+          `https://api.telegram.org/bot${telegramToken}/sendMessage`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: telegramChatId,
+              text: telegramText,
+              parse_mode: "HTML",
+            }),
+          }
+        );
+        results.telegram = tgRes.ok ? "sent" : `error: ${await tgRes.text()}`;
+      } catch (e: unknown) {
+        console.error("Telegram send failed:", e);
+        results.telegram = `error: ${(e as Error).message}`;
+      }
+    } else {
+      results.telegram = "skipped (no TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID)";
+    }
+
+    // ─── Trigger Web Push (fire-and-forget) ───────────────────
+    if (vapidPublicKey) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL");
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (supabaseUrl && serviceRoleKey) {
+        fetch(`${supabaseUrl}/functions/v1/send-web-push`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceRoleKey}`,
+          },
+          body: JSON.stringify({
+            title: reasonLabel,
+            body: preview
+              ? `"${preview.slice(0, 100)}${preview.length > 100 ? "..." : ""}"`
+              : "Open dashboard to respond.",
+            url: "/admin",
+            urgent: reason === "crisis_detected" || reason === "urgent_escalation",
+          }),
+        }).catch((e: unknown) => console.error("Web push fire failed:", e));
+        results.webPush = "triggered";
+      }
+    } else {
+      results.webPush = "skipped (no VAPID_PUBLIC_KEY)";
+    }
+
+    console.log(
+      `Notification for #${shortId}: email=${results.email}, sms=${results.sms}, telegram=${results.telegram}, webPush=${results.webPush}`
+    );
 
     return new Response(JSON.stringify({ success: true, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

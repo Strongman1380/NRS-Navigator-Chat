@@ -6,7 +6,7 @@
 
   1. New Table: `saved_conversations`
     - `id` (uuid, primary key)
-    - `user_id` (uuid, references profiles)
+    - `user_id` (uuid, references auth.users(id))
     - `conversation_id` (uuid, references conversations)
     - `title` (text) - user-provided or auto-generated label
     - `created_at` (timestamptz)
@@ -38,6 +38,13 @@ CREATE POLICY "Users can view own saved conversations"
 CREATE POLICY "Users can save conversations"
   ON saved_conversations FOR INSERT
   TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+-- Users can update their own saved conversations (e.g. rename title)
+CREATE POLICY "Users can update own saved conversations"
+  ON saved_conversations FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
 -- Users can remove their own saved conversations

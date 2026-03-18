@@ -38,7 +38,7 @@ const patterns: Pattern[] = [
       'i am going to kill myself', 'thinking about ending my life',
     ],
     response: () => ({
-      message: 'I hear that you\'re in crisis right now. Your safety is the top priority. Please call 988 (Suicide & Crisis Lifeline) immediately - they have trained counselors available 24/7 who can help. Would you like me to connect you with someone who can provide immediate support?',
+      message: 'I hear you, and what you\'re feeling matters. Please call or text 988 right now — trained counselors are available 24/7. If you\'re in immediate danger, call 911. I\'m also connecting you with a member of our support team, who will follow up with you directly. You don\'t have to figure this out alone.',
       priority: 'urgent',
       tags: ['Crisis'],
       requiresFollowUp: true,
@@ -53,8 +53,8 @@ const patterns: Pattern[] = [
     phrases: ['need a place', 'lost my apartment', 'living in car', 'sleeping outside', 'about to be homeless'],
     response: (context) => ({
       message: context.messageCount > 1
-        ? 'Let me help you find shelter options in your area. Can you tell me what city you\'re in, or your ZIP code? This will help me locate the nearest available shelters and housing resources.'
-        : 'I understand you need housing assistance. Many shelters offer emergency beds, meals, and case management services. What area are you located in so I can find resources near you?',
+        ? 'Let me find housing options near you. What city or ZIP code are you in? That\'ll help me pull up what\'s actually available — shelters, transitional housing, and programs that work with people who have a record.'
+        : 'I can help with that. There are emergency shelters, transitional housing programs, and sober living options across Nebraska — including ones that accept people with felony records. What area are you in?',
       suggestedResources: ['shelter'],
       priority: 'high',
       tags: ['Housing'],
@@ -64,14 +64,70 @@ const patterns: Pattern[] = [
   {
     keywords: [
       'treatment', 'rehab', 'detox', 'addiction', 'substance', 'drugs', 'alcohol', 'recovery', 'sober',
-      'meth', 'fentanyl', 'opioid', 'opiate', 'heroin', 'withdrawal', 'mat', 'suboxone', 'vivitrol', 'aa', 'na',
+      'meth', 'fentanyl', 'opioid', 'opiate', 'heroin', 'withdrawal', 'aa', 'na',
     ],
     phrases: ['need help', 'want to quit', 'get clean', 'stop using', 'need detox', 'treatment center'],
     response: (_context) => ({
-      message: 'Seeking treatment is a brave and important step. There are several types of programs available including detox, inpatient treatment, outpatient programs, and medication-assisted treatment. What type of support are you looking for? Also, are you currently in a safe place?',
+      message: 'That\'s a real step, and it matters. There are detox programs, inpatient and outpatient treatment, and medication-assisted treatment (MAT) options like Suboxone and Vivitrol available in Nebraska. What kind of support are you looking for? And are you in a safe place right now?',
       suggestedResources: ['treatment'],
       priority: 'high',
       tags: ['Treatment'],
+      requiresFollowUp: true,
+    }),
+  },
+  {
+    keywords: [
+      'suboxone', 'buprenorphine', 'methadone', 'vivitrol', 'naltrexone', 'mat',
+      'medication assisted', 'otp', 'narcan', 'naloxone',
+    ],
+    phrases: ['need suboxone', 'find a prescriber', 'mat provider', 'methadone clinic', 'get on mat', 'need vivitrol'],
+    response: () => ({
+      message: 'I can help you find MAT providers near you. Nebraska has methadone clinics, buprenorphine/Suboxone prescribers, and Vivitrol programs — and since the 2024 SAMHSA rule changes, telehealth MAT is an option too, which can help if you\'re in a rural area. What city or county are you in?',
+      suggestedResources: ['treatment'],
+      priority: 'high',
+      tags: ['Treatment', 'MAT'],
+      requiresFollowUp: true,
+    }),
+  },
+  {
+    keywords: [
+      'reentry', 'prison', 'incarcerated', 'parole', 'released', 'felony', 'record',
+      'background check', 'got out', 'just released', 'locked up', 'inside',
+    ],
+    phrases: ['just got out', 'coming home', 'out of prison', 'released from', 'have a record', 'felony on my record'],
+    response: () => ({
+      message: 'Welcome back. Reentry is hard, and the system doesn\'t always make it easy — but there are resources that can help. I can connect you with housing that accepts records, background-friendly employers, ID restoration, benefits enrollment, and more. What\'s your most pressing need right now?',
+      suggestedResources: ['shelter', 'other'],
+      priority: 'high',
+      tags: ['Reentry'],
+      requiresFollowUp: true,
+    }),
+  },
+  {
+    keywords: [
+      'probation', 'parole officer', 'po', 'drug court', 'problem solving court',
+      'ua', 'urinalysis', 'compliance', 'court ordered', 'supervision',
+    ],
+    phrases: ['on probation', 'my PO', 'drug court', 'court requirement', 'need to comply', 'probation check-in'],
+    response: () => ({
+      message: 'I can help you find what you need for your supervision requirements — treatment programs, court-approved services, and resources in your area. Just so you know, this platform is not connected to your probation or court case in any way. What are you looking for help with?',
+      suggestedResources: ['treatment', 'legal'],
+      priority: 'medium',
+      tags: ['Probation'],
+      requiresFollowUp: true,
+    }),
+  },
+  {
+    keywords: [
+      'birth certificate', 'social security card', 'state id', 'drivers license',
+      'lost id', 'no id', 'identification', 'id card', 'documents',
+    ],
+    phrases: ['need my id', 'get my id', 'replace my id', 'lost my documents', 'need id help', 'no identification'],
+    response: () => ({
+      message: 'Getting your ID sorted out is one of the most important first steps. I can help you find out how to get your Nebraska state ID, driver\'s license, Social Security card, or birth certificate. Which documents do you need, and what county are you in?',
+      suggestedResources: ['other'],
+      priority: 'medium',
+      tags: ['ID Restoration'],
       requiresFollowUp: true,
     }),
   },
@@ -82,7 +138,7 @@ const patterns: Pattern[] = [
     ],
     phrases: ['need food', 'emergency food', 'food sources', 'haven\'t eaten', 'no money for food', 'need a food box'],
     response: () => ({
-      message: 'I can help you find food resources. Many food banks, soup kitchens, and meal programs are available. What city or area are you in? I\'ll locate the nearest options with their hours and any requirements.',
+      message: 'I can help you find food right now. There are food pantries, soup kitchens, and meal programs across Nebraska. If you\'re eligible for SNAP, I can point you to enrollment help too — and yes, most people with drug convictions are now eligible. What area are you in?',
       suggestedResources: ['food'],
       priority: 'high',
       tags: ['Food'],
@@ -96,7 +152,7 @@ const patterns: Pattern[] = [
     ],
     phrases: ['need medical', 'health problem', 'need a doctor', 'can\'t afford', 'need a clinic'],
     response: () => ({
-      message: 'If this is a medical emergency, please call 911 or go to the nearest emergency room. For non-emergency medical needs, there are free and low-cost clinics, community health centers, and programs that can help. What type of medical care do you need?',
+      message: 'If this is a medical emergency, call 911 or go to the nearest ER. For non-emergency care, there are free and sliding-scale clinics and community health centers in Nebraska. If you just got out and need to get on Medicaid, I can help with that too. What kind of medical care do you need?',
       suggestedResources: ['medical'],
       priority: 'high',
       tags: ['Medical'],
@@ -110,10 +166,10 @@ const patterns: Pattern[] = [
     ],
     phrases: ['feeling depressed', 'can\'t cope', 'overwhelmed', 'panic attacks', 'need counseling'],
     response: () => ({
-      message: 'Mental health support is really important. There are counseling services, support groups, and crisis resources available. Many offer services on a sliding scale or free. Would you like help finding mental health resources in your area?',
+      message: 'Mental health support is out there, and you deserve access to it. There are community mental health centers, peer support specialists, and counseling services — many on a sliding scale or free. LB50 also means court-involved individuals can access virtual behavioral health. What area are you in?',
       suggestedResources: ['medical', 'crisis'],
       priority: 'medium',
-      tags: ['Medical'],
+      tags: ['Mental Health'],
       requiresFollowUp: true,
     }),
   },
@@ -121,10 +177,11 @@ const patterns: Pattern[] = [
     keywords: [
       'legal', 'lawyer', 'attorney', 'court', 'eviction', 'arrest', 'warrant', 'rights',
       'protection order', 'restraining order', 'child support', 'custody case',
+      'expungement', 'set aside', 'clear my record',
     ],
-    phrases: ['legal help', 'need attorney', 'court date', 'legal aid', 'need a lawyer'],
+    phrases: ['legal help', 'need attorney', 'court date', 'legal aid', 'need a lawyer', 'clean my record'],
     response: () => ({
-      message: 'I can help you find legal assistance. Legal aid organizations provide free legal help for civil matters. What kind of legal issue are you dealing with - housing, family law, benefits, criminal record, or something else?',
+      message: 'I can help you find legal resources. Nebraska Legal Aid provides free civil legal help statewide (1-877-250-2016). If you\'re looking at record expungement or set-aside, reentry legal clinics, or drug court info, I can point you in the right direction. What kind of legal issue are you dealing with?',
       suggestedResources: ['legal'],
       priority: 'medium',
       tags: ['Legal'],
@@ -133,12 +190,12 @@ const patterns: Pattern[] = [
   },
   {
     keywords: ['job', 'work', 'employment', 'hire', 'resume', 'interview', 'unemployed', 'career', 'training'],
-    phrases: ['need a job', 'looking for work', 'help finding work', 'job training'],
+    phrases: ['need a job', 'looking for work', 'help finding work', 'job training', 'with a record'],
     response: () => ({
-      message: 'I can help connect you with employment services. Many organizations offer job training, resume help, interview preparation, and job placement. Are you looking for immediate work opportunities, or would job training programs be helpful?',
+      message: 'There are employers in Nebraska who hire people with records — fair-chance and ban-the-box employers across different industries. I can also connect you with workforce development programs, resume help, and trade apprenticeships with reentry pathways. What area are you in, and what kind of work are you looking for?',
       suggestedResources: ['other'],
       priority: 'medium',
-      tags: ['Other'],
+      tags: ['Employment'],
       requiresFollowUp: true,
     }),
   },
@@ -146,10 +203,10 @@ const patterns: Pattern[] = [
     keywords: ['benefits', 'snap', 'food stamps', 'medicaid', 'disability', 'ssi', 'ssdi', 'welfare', 'tanf'],
     phrases: ['apply for', 'get benefits', 'public assistance', 'state assistance'],
     response: () => ({
-      message: 'I can help you understand available benefit programs like SNAP (food assistance), Medicaid (health coverage), and other support. Many organizations can help with applications. Which benefits are you interested in learning about?',
+      message: 'I can help you figure out what benefits you\'re eligible for — SNAP, Medicaid, SSI/SSDI, and more. If you\'re recently released, there are specific timelines for Medicaid enrollment and SSI restoration. ACCESSNebraska handles most applications: 1-800-383-4278 (SNAP) or 1-855-632-7633 (Medicaid). Which benefits are you interested in?',
       suggestedResources: ['other'],
       priority: 'medium',
-      tags: ['Other'],
+      tags: ['Benefits'],
       requiresFollowUp: true,
     }),
   },
@@ -157,7 +214,7 @@ const patterns: Pattern[] = [
     keywords: ['domestic', 'abuse', 'violence', 'hitting', 'partner', 'unsafe', 'trafficking', 'assault'],
     phrases: ['being abused', 'hit me', 'not safe at home', 'domestic violence', 'my partner hurt me'],
     response: () => ({
-      message: 'Your safety matters. If you\'re in immediate danger, call 911. The National Domestic Violence Hotline is available 24/7 at 1-800-799-7233 (or text START to 88788). They can help with safety planning, shelter referrals, and support. Would you like help finding local resources?',
+      message: 'Your safety matters. If you\'re in immediate danger, call 911. The National Domestic Violence Hotline is available 24/7 at 1-800-799-7233 (or text START to 88788). They can help with safety planning, shelter, and support. Would you like help finding local resources?',
       priority: 'urgent',
       tags: ['Crisis'],
       requiresFollowUp: true,
@@ -167,10 +224,10 @@ const patterns: Pattern[] = [
     keywords: ['transportation', 'ride', 'bus', 'car', 'gas card', 'uber', 'lyft', 'bus pass'],
     phrases: ['need a ride', 'no transportation', 'can\'t get there', 'how to get to', 'need bus pass'],
     response: () => ({
-      message: 'Transportation can be a real barrier. Many communities offer free or reduced transit passes, medical transportation, and ride programs. What area are you in? I can look into what\'s available near you.',
+      message: 'Transportation is one of the biggest barriers, especially in rural Nebraska. Some communities offer free transit passes, medical transportation, and ride programs. What area are you in? I\'ll see what\'s available.',
       suggestedResources: ['other'],
       priority: 'medium',
-      tags: ['Other'],
+      tags: ['Transportation'],
       requiresFollowUp: true,
     }),
   },
@@ -178,10 +235,10 @@ const patterns: Pattern[] = [
     keywords: ['veteran', 'military', 'va', 'service member'],
     phrases: ['served in', 'military service', 'va benefits'],
     response: () => ({
-      message: 'Thank you for your service. Veterans have access to specialized resources including VA healthcare, housing programs (like SSVF and HUD-VASH), employment services, and peer support. Would you like help connecting with veteran-specific services in your area?',
+      message: 'Thank you for your service. Veterans have access to specialized resources — VA healthcare, housing programs like SSVF and HUD-VASH, employment services, veterans treatment court, and VA MAT programs. Would you like help connecting with veteran-specific services in your area?',
       suggestedResources: ['other'],
       priority: 'medium',
-      tags: ['Other'],
+      tags: ['Veteran Services'],
       requiresFollowUp: true,
     }),
   },
@@ -190,22 +247,22 @@ const patterns: Pattern[] = [
     phrases: ['have kids', 'my children', 'family shelter', 'with my kids', 'need diapers'],
     response: (context) => ({
       message: context.previousTopics.includes('housing')
-        ? 'Family shelters prioritize keeping families together. Many also provide childcare, school enrollment help, and family case management. Let me find family-friendly options in your area — what city or ZIP code?'
-        : 'I can help you find family-focused resources including family shelters, childcare assistance, parenting support, and programs for children. What kind of help does your family need right now?',
+        ? 'Family shelters prioritize keeping families together. Many also provide childcare, school enrollment help, and family case management. Let me find family-friendly options near you — what city or ZIP code?'
+        : 'I can help you find family-focused resources — family shelters, childcare assistance, parenting support, and children\'s programs. What kind of help does your family need right now?',
       suggestedResources: ['shelter'],
       priority: 'high',
-      tags: ['Housing'],
+      tags: ['Family'],
       requiresFollowUp: true,
     }),
   },
   {
-    keywords: ['clothing', 'clothes', 'coat', 'shoes', 'warm', 'blanket', 'hygiene', 'toiletries', 'id', 'documents'],
-    phrases: ['need clothes', 'need a coat', 'stay warm', 'need hygiene items', 'need id help'],
+    keywords: ['clothing', 'clothes', 'coat', 'shoes', 'warm', 'blanket', 'hygiene', 'toiletries'],
+    phrases: ['need clothes', 'need a coat', 'stay warm', 'need hygiene items'],
     response: () => ({
-      message: 'Several organizations provide free clothing, coats, and personal items. Thrift stores, churches, and community centers often run clothing drives. What area are you in so I can find options near you?',
+      message: 'Several organizations provide free clothing, coats, and personal items. What area are you in? I\'ll find what\'s available near you.',
       suggestedResources: ['other'],
       priority: 'medium',
-      tags: ['Other'],
+      tags: ['Essentials'],
       requiresFollowUp: true,
     }),
   },
@@ -213,7 +270,7 @@ const patterns: Pattern[] = [
     keywords: ['hello', 'hi', 'hey', 'good morning', 'good afternoon'],
     phrases: ['what can you do', 'how does this work', 'who are you'],
     response: () => ({
-      message: 'Hi there! I\'m the NRS Navigator — I help people find resources like shelter, food, treatment programs, medical care, legal help, employment, and more. You can tell me what you\'re going through and I\'ll do my best to point you in the right direction. What can I help you with?',
+      message: 'Hey there. I\'m the Next Right Step Recovery Navigator — I help people find resources like housing, treatment, food, legal help, employment, and more across Nebraska. I\'m built specifically for people navigating recovery, reentry, and the justice system. What can I help you with?',
       priority: 'low',
       requiresFollowUp: true,
     }),
@@ -222,7 +279,7 @@ const patterns: Pattern[] = [
     keywords: ['thank', 'thanks', 'appreciate', 'helpful'],
     phrases: ['thank you', 'thanks for', 'that helps'],
     response: () => ({
-      message: 'You\'re welcome. Remember, reaching out is a strong step. Is there anything else I can help you with today?',
+      message: 'You\'re welcome. Reaching out takes effort, and you did it. Is there anything else I can help with?',
       priority: 'low',
       requiresFollowUp: false,
     }),
@@ -257,7 +314,7 @@ export function generateAIResponse(
 
   if (context.messageCount === 0) {
     return {
-      message: 'Hello! I\'m here to help connect you with resources and support. You can ask me about shelter, food, treatment programs, medical care, or other services. What do you need help with today?',
+      message: 'Hey — I\'m here to help you find resources and support in Nebraska. I can help with housing, food, treatment, medical care, legal help, employment, benefits, and more. What do you need help with today?',
       priority: 'medium',
       requiresFollowUp: true,
     };
@@ -265,7 +322,7 @@ export function generateAIResponse(
 
   if (lowerMessage.length < 10) {
     return {
-      message: 'I want to make sure I understand how I can help you. Could you tell me a bit more about what you need?',
+      message: 'I want to make sure I understand what you need. Could you tell me a bit more?',
       priority: 'medium',
       requiresFollowUp: true,
     };
@@ -276,7 +333,7 @@ export function generateAIResponse(
   if (locationMatch && context.previousTopics.length > 0) {
     const topic = context.previousTopics[context.previousTopics.length - 1];
     return {
-      message: `Thanks for sharing your location. Let me look into ${topic} resources in that area. In the meantime, you can also call 211 — it's a free helpline that connects people with local services 24/7. Is there anything specific about the ${topic} services you're looking for?`,
+      message: `Got it. Let me look into ${topic} resources in that area. You can also call 211 anytime — it's free and available 24/7. Is there anything specific about the ${topic} services you're looking for?`,
       priority: 'medium',
       requiresFollowUp: true,
     };
@@ -286,17 +343,17 @@ export function generateAIResponse(
   if (context.previousTopics.length > 0) {
     const lastTopic = context.previousTopics[context.previousTopics.length - 1];
     return {
-      message: `I want to make sure I help you find the right ${lastTopic} resources. Could you tell me more about your situation — like what city you're in, or what specific kind of help you're looking for? The more details you share, the better I can assist.`,
+      message: `I want to make sure I find the right ${lastTopic} resources for you. What city are you in, or what specific kind of help are you looking for?`,
       priority: 'medium',
       requiresFollowUp: true,
     };
   }
 
-  // Generic fallback — still helpful and warm
+  // Generic fallback
   const fallbacks = [
-    'I\'m here to help you find the right resources. I can assist with housing, food, treatment, medical care, legal aid, employment, and more. What\'s going on in your life right now that I can help with?',
-    'I want to make sure I point you in the right direction. Could you share a bit more about what you\'re going through? I can help with things like finding shelter, food, healthcare, legal help, or other support services.',
+    'I\'m here to help. I can assist with housing, food, treatment, medical care, legal aid, employment, benefits, and more. What\'s going on that I can help with?',
     'Tell me more about what you need and I\'ll do my best to connect you with the right resources. You can also call 211 anytime for help finding local services.',
+    'I want to point you in the right direction. Could you share a bit more about what\'s going on? I work with people navigating recovery, reentry, housing, employment, and more.',
   ];
 
   return {
@@ -329,16 +386,20 @@ export function generateTopicSummary(userMessage: string): string {
   const topicMap: Array<{ keywords: string[]; label: string }> = [
     { keywords: ['shelter', 'homeless', 'unhoused', 'housing', 'evicted', 'place to stay', 'nowhere to go', 'sleeping outside', 'couch surfing', 'living in car', 'rent help'], label: 'Housing / Shelter' },
     { keywords: ['treatment', 'rehab', 'detox', 'addiction', 'substance', 'recovery', 'sober', 'drugs', 'alcohol', 'using', 'withdrawal', 'suboxone', 'aa', 'na'], label: 'Substance Use Treatment' },
+    { keywords: ['methadone', 'buprenorphine', 'vivitrol', 'naltrexone', 'mat', 'medication assisted', 'narcan', 'naloxone'], label: 'MAT' },
+    { keywords: ['reentry', 'prison', 'incarcerated', 'parole', 'released', 'felony', 'record', 'locked up', 'just got out'], label: 'Reentry' },
+    { keywords: ['probation', 'drug court', 'problem solving court', 'supervision', 'court ordered', 'compliance'], label: 'Probation / Drug Court' },
+    { keywords: ['birth certificate', 'social security card', 'state id', 'drivers license', 'identification', 'lost id', 'no id'], label: 'ID Restoration' },
     { keywords: ['food', 'foodbox', 'food box', 'hungry', 'meal', 'food bank', 'pantry', 'starving', 'eat', 'food sources', 'emergency food', 'groceries'], label: 'Food Assistance' },
     { keywords: ['medical', 'doctor', 'hospital', 'health', 'prescription', 'medicine', 'sick', 'injured', 'clinic', 'dental'], label: 'Medical / Health' },
     { keywords: ['mental health', 'depression', 'anxiety', 'counseling', 'therapy', 'therapist', 'stressed', 'overwhelmed', 'panic', 'ptsd', 'trauma'], label: 'Mental Health' },
-    { keywords: ['legal', 'lawyer', 'attorney', 'court', 'eviction notice', 'arrest', 'warrant', 'legal aid'], label: 'Legal Aid' },
+    { keywords: ['legal', 'lawyer', 'attorney', 'court', 'eviction notice', 'arrest', 'warrant', 'legal aid', 'expungement', 'set aside'], label: 'Legal Aid' },
     { keywords: ['job', 'work', 'employment', 'resume', 'hire', 'interview', 'unemployed', 'job training'], label: 'Employment' },
     { keywords: ['benefits', 'snap', 'food stamps', 'medicaid', 'disability', 'ssi', 'ssdi', 'welfare', 'tanf'], label: 'Benefits / Assistance' },
     { keywords: ['transportation', 'ride', 'bus pass', 'car', 'uber', 'lyft', 'gas card'], label: 'Transportation' },
-    { keywords: ['veteran', 'military', 'va ', 'service member'], label: 'Veteran Services' },
+    { keywords: ['veteran', 'military', 'service member', 'va benefits', 'va healthcare', 'v.a.'], label: 'Veteran Services' },
     { keywords: ['child', 'children', 'kids', 'family', 'custody', 'parenting', 'diapers', 'formula'], label: 'Family / Children' },
-    { keywords: ['clothing', 'clothes', 'coat', 'shoes', 'blanket', 'hygiene', 'toiletries', 'id', 'documents'], label: 'Clothing / Essentials' },
+    { keywords: ['clothing', 'clothes', 'coat', 'shoes', 'blanket', 'hygiene', 'toiletries'], label: 'Clothing / Essentials' },
   ];
 
   const matched: string[] = [];
@@ -346,6 +407,11 @@ export function generateTopicSummary(userMessage: string): string {
     if (keywords.some(k => lower.includes(k))) {
       matched.push(label);
     }
+  }
+
+  // Word-boundary check for standalone "va" (Veteran Services)
+  if (!matched.includes('Veteran Services') && /\bva\b/i.test(lower)) {
+    matched.push('Veteran Services');
   }
 
   if (matched.length > 0) {
@@ -389,6 +455,28 @@ export function analyzeConversation(messages: Array<{ content: string; sender: s
     if (urgency === 'medium') urgency = 'high';
   }
 
+  if (['reentry', 'prison', 'incarcerated', 'parole', 'released', 'felony', 'just got out'].some(term => allContent.includes(term))) {
+    detectedTopics.push('reentry');
+    recommendedTags.push('Reentry');
+    if (urgency === 'medium') urgency = 'high';
+  }
+
+  if (['probation', 'drug court', 'supervision', 'court ordered'].some(term => allContent.includes(term))) {
+    detectedTopics.push('probation');
+    recommendedTags.push('Probation');
+  }
+
+  if (['methadone', 'buprenorphine', 'suboxone', 'vivitrol', 'naltrexone', 'mat provider'].some(term => allContent.includes(term))) {
+    detectedTopics.push('mat');
+    recommendedTags.push('MAT');
+    if (urgency === 'medium') urgency = 'high';
+  }
+
+  if (['birth certificate', 'social security card', 'state id', 'drivers license', 'lost id', 'no id'].some(term => allContent.includes(term))) {
+    detectedTopics.push('id_restoration');
+    recommendedTags.push('ID Restoration');
+  }
+
   if (['food', 'foodbox', 'food box', 'hungry', 'pantry', 'food bank', 'meal', 'groceries'].some(term => allContent.includes(term))) {
     detectedTopics.push('food');
     recommendedTags.push('Food');
@@ -399,9 +487,14 @@ export function analyzeConversation(messages: Array<{ content: string; sender: s
     recommendedTags.push('Medical');
   }
 
-  if (['legal', 'lawyer', 'attorney', 'court', 'warrant', 'eviction'].some(term => allContent.includes(term))) {
+  if (['legal', 'lawyer', 'attorney', 'court', 'warrant', 'eviction', 'expungement'].some(term => allContent.includes(term))) {
     detectedTopics.push('legal');
     recommendedTags.push('Legal');
+  }
+
+  if (['job', 'work', 'employment', 'hire', 'resume', 'unemployed'].some(term => allContent.includes(term))) {
+    detectedTopics.push('employment');
+    recommendedTags.push('Employment');
   }
 
   return { detectedTopics, urgency, recommendedTags };

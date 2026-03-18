@@ -211,7 +211,7 @@ export default function AdminConversationView({ conversationId, onBack }: AdminC
     const { data: takeoverMsg } = await supabase.from('messages').insert({
       conversation_id: conversationId,
       sender_type: 'admin',
-      content: "Hi, I'm Brandon — a real person on the NRS team. I've joined this conversation to help you directly. How can I assist you?",
+      content: "Hi — I'm a real person on the NRS support team. I've joined this conversation to help you directly. How can I assist you?",
       is_read: false,
     }).select().single();
 
@@ -308,7 +308,7 @@ export default function AdminConversationView({ conversationId, onBack }: AdminC
                 }`}
               >
                 <div className="text-[10px] sm:text-xs font-semibold mb-0.5 opacity-75">
-                  {message.sender_type === 'admin' ? 'You (Brandon)' : message.sender_type === 'ai' ? 'AI Navigator' : 'Visitor'}
+                  {message.sender_type === 'admin' ? 'You' : message.sender_type === 'ai' ? 'AI Navigator' : 'Visitor'}
                 </div>
                 <p className="text-[13px] sm:text-sm md:text-[15px] leading-relaxed whitespace-pre-line">{message.content}</p>
                 <div className="text-[10px] sm:text-xs opacity-75 mt-0.5">

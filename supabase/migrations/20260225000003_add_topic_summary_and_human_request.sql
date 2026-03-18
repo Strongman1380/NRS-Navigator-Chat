@@ -21,3 +21,9 @@ BEGIN
     ALTER TABLE conversations ADD COLUMN needs_human_response boolean DEFAULT false;
   END IF;
 END $$;
+
+-- Backfill existing rows that may have NULL needs_human_response
+UPDATE conversations SET needs_human_response = false WHERE needs_human_response IS NULL;
+
+-- Enforce NOT NULL now that all rows have a value
+ALTER TABLE conversations ALTER COLUMN needs_human_response SET NOT NULL;

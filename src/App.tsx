@@ -3,12 +3,15 @@ import Auth from './components/Auth';
 import EnhancedPublicChat from './components/EnhancedPublicChat';
 import EnhancedAdminDashboard from './components/EnhancedAdminDashboard';
 import { usePushNotifications } from './hooks/usePushNotifications';
+import { useWebPush } from './hooks/useWebPush';
 
 function AppContent() {
   const { user, loading, isAdmin } = useAuth();
 
   // Register push notifications for admin users on native platforms
   usePushNotifications(user?.id, isAdmin);
+  // Register Web Push for admin users on web/PWA (iOS 16.4+, all modern browsers)
+  useWebPush(!!user && isAdmin);
 
   if (loading) {
     return (

@@ -24,7 +24,7 @@ Deno.serve(async (req: Request) => {
     const anonClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: req.headers.get("Authorization")! } } }
+      { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } }
     );
 
     const { data: { user }, error: authError } = await anonClient.auth.getUser();
@@ -48,7 +48,16 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const { action, ids } = await req.json() as { action: string; ids: string[] };
+    let body: { action: string; ids: string[] };
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { action, ids } = body;
 
     if (!action || !Array.isArray(ids) || ids.length === 0) {
       return new Response(JSON.stringify({ error: "Invalid request: action and ids required" }), {
@@ -77,20 +86,10 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "delete") {
-      // Delete messages first (FK constraint), then conversations.
-      // admin_notes and conversation_tags_junction have ON DELETE CASCADE.
-      // analytics_events has ON DELETE SET NULL — no manual delete needed.
-      const { error: msgError } = await adminClient
-        .from("messages")
-        .delete()
-        .in("conversation_id", ids);
-      if (msgError) throw msgError;
-
-      const { error: convError } = await adminClient
-        .from("conversations")
-        .delete()
-        .in("id", ids);
-      if (convError) throw convError;
+      const { error: rpcError } = await adminClient.rpc("delete_conversations_atomic", {
+        conversation_ids: ids,
+      });
+      if (rpcError) throw rpcError;
 
       return new Response(JSON.stringify({ success: true, deleted: ids.length }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -102,8 +101,8 @@ Deno.serve(async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("manage-conversations error:", error);
-    return new Response(JSON.stringify({ error: error.message || "Internal server error" }), {
+    console.error("manage-conversations error:", error instanceof Error ? error.message : error);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

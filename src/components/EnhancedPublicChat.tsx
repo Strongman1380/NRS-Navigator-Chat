@@ -40,8 +40,6 @@ const HUMAN_REQUEST_PATTERNS = [
   'live agent',
   'real help',
   'connect me to',
-  'talk to brandon',
-  'speak with brandon',
   'need a person',
   'not ai',
 ];
@@ -49,7 +47,6 @@ const HUMAN_REQUEST_PATTERNS = [
 export default function EnhancedPublicChat() {
   const { user, signOut, hasDashboardAccess } = useAuth();
   const isGuest = !user?.email; // anonymous users have no email
-  const stripeDonationUrl = import.meta.env.VITE_STRIPE_DONATION_URL as string | undefined;
   const [hasConsented, setHasConsented] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -303,7 +300,7 @@ export default function EnhancedPublicChat() {
       const { data: escalationMsg } = await supabase.from('messages').insert({
         conversation_id: conversationId,
         sender_type: 'ai',
-        content: "I'm reaching out to Brandon Hinrichs, our human support specialist, right now. He'll be with you shortly. In the meantime, feel free to keep sharing what you need help with — you don't have to figure this out alone.",
+        content: "I'm reaching out to a member of our support team right now. They'll be with you shortly. In the meantime, feel free to keep sharing what you need help with — you don't have to figure this out alone.",
       }).select().single();
 
       if (escalationMsg) addMessageIfNew(escalationMsg);
@@ -394,7 +391,7 @@ export default function EnhancedPublicChat() {
 
     // Deterministic crisis trigger — fast, no GPT round-trip needed.
     if (isCrisisMessage(userMessage)) {
-      const crisisMessage = 'I hear you, and what you\'re feeling matters. Please call or text 988 right now — trained counselors are available 24/7. If you\'re in immediate danger, call 911. I\'m also connecting you with Brandon Hinrichs, our human support specialist, who will follow up with you directly. You don\'t have to figure this out alone.';
+      const crisisMessage = 'I hear you, and what you\'re feeling matters. Please call or text 988 right now — trained counselors are available 24/7. If you\'re in immediate danger, call 911. I\'m also connecting you with a member of our support team, who will follow up with you directly. You don\'t have to figure this out alone.';
 
       const { data: aiMsg } = await supabase.from('messages').insert({
         conversation_id: conversationId,
@@ -424,7 +421,7 @@ export default function EnhancedPublicChat() {
 
     // Deterministic human handoff trigger.
     if (isHumanRequest(userMessage)) {
-      const escalationMessage = "It sounds like what you're going through needs more than I can offer right now. I'm connecting you with Brandon Hinrichs, who built this platform and has over 10 years of experience in human services. He'll follow up with you directly. You don't have to figure this out alone.";
+      const escalationMessage = "It sounds like what you're going through needs more than I can offer right now. I'm connecting you with a member of our support team who has experience in human services. They'll follow up with you directly. You don't have to figure this out alone.";
 
       const { data: aiMsg } = await supabase.from('messages').insert({
         conversation_id: conversationId,
@@ -608,10 +605,10 @@ export default function EnhancedPublicChat() {
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4">
                   <h3 className="font-semibold text-blue-900 mb-2">Need a Real Person?</h3>
                   <p className="text-blue-800 mb-2">
-                    If at any point you would like to speak with a real person, simply say so in the chat (for example, "I'd like to talk to someone") and the AI will connect you with Brandon Hinrichs, the person behind this platform.
+                    If at any point you would like to speak with a real person, simply say so in the chat (for example, "I'd like to talk to someone") and the AI will connect you with a member of our support team.
                   </p>
                   <p className="text-blue-800 mb-2">
-                    Brandon is <strong>trauma-informed</strong>, with <strong>over 10 years of experience</strong> working directly in human services. He <strong>will not provide therapeutic insight, diagnoses, or clinical treatment</strong> — but he can provide a compassionate, knowledgeable person to talk to who understands what you're going through and can help guide you to the right resources.
+                    Our support staff are <strong>trauma-informed</strong> with experience working directly in human services. They <strong>will not provide therapeutic insight, diagnoses, or clinical treatment</strong> — but they can provide a compassionate, knowledgeable person to talk to who understands what you're going through and can help guide you to the right resources.
                   </p>
                 </div>
 
@@ -682,24 +679,6 @@ export default function EnhancedPublicChat() {
       {/* Header - safe area top for notched iPhones */}
       <div className="bg-white border-b border-slate-200 shadow-sm safe-top">
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-4 safe-x">
-          {stripeDonationUrl && activeTab === 'chat' && (
-            <div className="mb-2 sm:mb-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[11px] sm:text-xs text-slate-700">
-                  Chat is private, secure, and confidential. Optional: support this mission to help more people receive resources statewide.
-                </p>
-                <a
-                  href={stripeDonationUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center px-2.5 py-1.5 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 active:bg-emerald-800 transition-colors text-[11px] sm:text-xs font-medium"
-                >
-                  Donate
-                </a>
-              </div>
-            </div>
-          )}
-
           <div className="flex items-center justify-between">
             <div className="min-w-0 flex-1">
               <h1 className="text-base sm:text-lg md:text-xl font-bold text-slate-900 truncate">Next Right Step</h1>
@@ -861,7 +840,7 @@ export default function EnhancedPublicChat() {
                   >
                     {message.sender_type !== 'visitor' && (
                       <div className="text-[10px] sm:text-xs font-semibold text-slate-500 mb-0.5">
-                        {message.sender_type === 'admin' ? 'Brandon' : 'Recovery Navigator'}
+                        {message.sender_type === 'admin' ? 'Support Specialist' : 'Recovery Navigator'}
                       </div>
                     )}
                     <p className="text-[13px] sm:text-sm md:text-[15px] leading-relaxed whitespace-pre-line">{message.content}</p>
@@ -919,7 +898,7 @@ export default function EnhancedPublicChat() {
               {isAdminTyping && !isLoading && (
                 <div className="flex justify-start">
                   <div className="bg-white rounded-2xl px-4 py-3 shadow-sm border border-slate-200">
-                    <div className="text-[10px] sm:text-xs font-semibold text-slate-500 mb-1">Brandon</div>
+                    <div className="text-[10px] sm:text-xs font-semibold text-slate-500 mb-1">Support Specialist</div>
                     <div className="flex items-center gap-1">
                       <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                       <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
