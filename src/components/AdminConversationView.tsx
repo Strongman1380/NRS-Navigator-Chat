@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Send, Loader2, CheckCircle, UserCheck } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, CheckCircle, UserCheck, Archive, Trash2 } from 'lucide-react';
 import { supabase, type Message, type Conversation } from '../lib/supabase';
 
 interface AdminConversationViewProps {
@@ -195,6 +195,31 @@ export default function AdminConversationView({ conversationId, onBack }: AdminC
     setIsLoading(false);
   };
 
+  const callManage = async (action: 'archive' | 'delete') => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-conversations`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ action, ids: [conversationId] }),
+      }
+    );
+    if (!res.ok) throw new Error(`manage-conversations ${res.status}`);
+  };
+
+  const handleArchive = async () => {
+    await callManage('archive');
+    onBack();
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm('Permanently delete this conversation and all its messages? This cannot be undone.')) return;
+    await callManage('delete');
+    onBack();
+  };
+
   const handleTakeOver = async () => {
     await supabase
       .from('conversations')
@@ -284,6 +309,22 @@ export default function AdminConversationView({ conversationId, onBack }: AdminC
               >
                 <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5" />
                 <span className="hidden sm:inline">Resolve</span>
+              </button>
+              <button
+                onClick={handleArchive}
+                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 active:bg-slate-800 transition-colors font-medium text-xs sm:text-sm"
+                title="Archive — keeps conversation for AI training"
+              >
+                <Archive className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5" />
+                <span className="hidden sm:inline">Archive</span>
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 active:bg-red-800 transition-colors font-medium text-xs sm:text-sm"
+                title="Permanently delete this conversation"
+              >
+                <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5" />
+                <span className="hidden sm:inline">Delete</span>
               </button>
             </div>
           </div>
