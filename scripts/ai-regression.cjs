@@ -101,7 +101,11 @@ async function run() {
     }
   }
 
-  rmSync(outDir, { recursive: true, force: true });
+  try {
+    rmSync(outDir, { recursive: true, force: true });
+  } catch (err) {
+    console.error('Cleanup failed:', err);
+  }
 
   if (failures.length > 0) {
     process.exitCode = 1;
